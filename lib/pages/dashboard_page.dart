@@ -70,6 +70,62 @@ class _DashboardPageState extends State<DashboardPage>
     return totals.take(5).toList();
   }
 
+  /// Calculates the next month target based on average growth rate
+  /// Excludes current month from the calculation
+  Map<String, dynamic> get nextMonthTarget {
+    if (_monthlySummaries.isEmpty) {
+      return {'target': 0.0, 'growthRate': 0.05, 'lastMonth': 0.0};
+    }
+
+    // Sort by month ascending
+    final sortedSummaries = List<MonthlyTransactionSummary>.from(_monthlySummaries)
+      ..sort((a, b) => a.month.compareTo(b.month));
+
+    // Exclude current month
+    final now = DateTime.now();
+    final currentMonth = DateTime(now.year, now.month);
+    final completedMonths = sortedSummaries
+        .where((s) => s.month.isBefore(currentMonth))
+        .toList();
+
+    if (completedMonths.isEmpty) {
+      return {'target': 0.0, 'growthRate': 0.05, 'lastMonth': 0.0};
+    }
+
+    // Take last 3 months (or all if less than 3)
+    final recentMonths = completedMonths.length <= 3
+        ? completedMonths
+        : completedMonths.sublist(completedMonths.length - 3);
+
+    // Calculate growth rates for each consecutive pair
+    final growthRates = <double>[];
+    for (int i = 1; i < recentMonths.length; i++) {
+      final previous = recentMonths[i - 1].totalReceived;
+      final current = recentMonths[i].totalReceived;
+      if (previous > 0) {
+        growthRates.add((current - previous) / previous);
+      }
+    }
+
+    // Average the growth rates, ensure minimum 5% growth
+    double avgGrowthRate = 0.05; // Default 5%
+    if (growthRates.isNotEmpty) {
+      avgGrowthRate = growthRates.reduce((a, b) => a + b) / growthRates.length;
+      if (avgGrowthRate < 0.05) avgGrowthRate = 0.05; // Minimum 5%
+    }
+
+    // Calculate target: Last Month × (1 + Growth Rate)
+    final lastMonthAmount = recentMonths.last.totalReceived;
+    final target = lastMonthAmount * (1 + avgGrowthRate);
+
+    return {
+      'target': target,
+      'growthRate': avgGrowthRate,
+      'lastMonth': lastMonthAmount,
+      'lastMonthDate': recentMonths.last.month,
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -172,6 +228,8 @@ class _DashboardPageState extends State<DashboardPage>
                           _buildMonthlySummaryCard(),
                           const SizedBox(height: 20),
                           _buildMetricCards(),
+                          const SizedBox(height: 20),
+                          _buildNextMonthTargetCard(),
                           const SizedBox(height: 20),
                           _buildTransactionChart(),
                           const SizedBox(height: 20),
@@ -679,6 +737,191 @@ class _DashboardPageState extends State<DashboardPage>
                 fontWeight: FontWeight.bold,
                 letterSpacing: -0.5,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNextMonthTargetCard() {
+    final targetData = nextMonthTarget;
+    final target = targetData['target'] as double;
+    final growthRate = targetData['growthRate'] as double;
+    final lastMonth = targetData['lastMonth'] as double;
+    final lastMonthDate = targetData['lastMonthDate'] as DateTime?;
+
+    if (target <= 0) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF059669), Color(0xFF10B981)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: successColor.withOpacity(0.4),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -40,
+            right: -40,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.1),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -20,
+            left: -20,
+            child: Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.05),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.flag_rounded,
+                        color: Colors.white,
+                        size: 26,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Next Month Target',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Based on your growth trend',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  currencyFormat.format(target),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 42,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: -1.5,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Growth Rate',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '+${(growthRate * 100).toStringAsFixed(1)}%',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 40,
+                        color: Colors.white.withOpacity(0.3),
+                      ),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                lastMonthDate != null
+                                    ? DateFormat('MMM yyyy').format(lastMonthDate)
+                                    : 'Last Month',
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                currencyFormat.format(lastMonth),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ],
