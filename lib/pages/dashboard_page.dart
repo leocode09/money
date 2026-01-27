@@ -268,13 +268,7 @@ class _DashboardPageState extends State<DashboardPage>
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            bgColor,
-            bgGradient1,
-            bgGradient2,
-            bgGradient1,
-            bgColor,
-          ],
+          colors: [bgColor, bgGradient1, bgGradient2, bgGradient1, bgColor],
           stops: [0.0, 0.25, 0.5, 0.75, 1.0],
         ),
       ),
@@ -398,10 +392,7 @@ class _DashboardPageState extends State<DashboardPage>
           stops: [0.0, 0.6, 1.0],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: primaryLight.withOpacity(0.3),
-          width: 1,
-        ),
+        border: Border.all(color: primaryLight.withOpacity(0.3), width: 1),
         boxShadow: [
           BoxShadow(
             color: primaryColor.withOpacity(0.4),
@@ -425,10 +416,7 @@ class _DashboardPageState extends State<DashboardPage>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
-                    colors: [
-                      Colors.white.withOpacity(0.2),
-                      Colors.transparent,
-                    ],
+                    colors: [Colors.white.withOpacity(0.2), Colors.transparent],
                   ),
                 ),
               ),
@@ -531,10 +519,7 @@ class _DashboardPageState extends State<DashboardPage>
       decoration: BoxDecoration(
         color: cardColor.withOpacity(0.7),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: cardBorder.withOpacity(0.5),
-          width: 1,
-        ),
+        border: Border.all(color: cardBorder.withOpacity(0.5), width: 1),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.2),
@@ -677,23 +662,23 @@ class _DashboardPageState extends State<DashboardPage>
                             dangerColor.withOpacity(0.05),
                           ],
                   ),
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: percentageChange >= 0
                         ? successColor.withOpacity(0.3)
                         : dangerColor.withOpacity(0.3),
-                    width: 1.5,
+                    width: 1,
                   ),
                 ),
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
                         color: percentageChange >= 0
                             ? successColor.withOpacity(0.2)
                             : dangerColor.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
                         percentageChange >= 0
@@ -702,33 +687,26 @@ class _DashboardPageState extends State<DashboardPage>
                         color: percentageChange >= 0
                             ? successColor
                             : dangerColor,
-                        size: 22,
+                        size: 16,
                       ),
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${percentageChange >= 0 ? '+' : ''}${percentageChange.toStringAsFixed(1)}%',
-                            style: TextStyle(
-                              color: percentageChange >= 0
-                                  ? successColor
-                                  : dangerColor,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 20,
-                            ),
-                          ),
-                          Text(
-                            'vs ${DateFormat('MMMM').format(previousSummary.month)}',
-                            style: const TextStyle(
-                              color: textSecondary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+                    const SizedBox(width: 10),
+                    Text(
+                      '${percentageChange >= 0 ? '+' : ''}${percentageChange.toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        color: percentageChange >= 0
+                            ? successColor
+                            : dangerColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'vs ${DateFormat('MMM').format(previousSummary.month)}',
+                      style: const TextStyle(
+                        color: textSecondary,
+                        fontSize: 11,
                       ),
                     ),
                   ],
@@ -827,10 +805,7 @@ class _DashboardPageState extends State<DashboardPage>
       decoration: BoxDecoration(
         color: cardColor.withOpacity(0.6),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: cardBorder.withOpacity(0.4),
-          width: 1,
-        ),
+        border: Border.all(color: cardBorder.withOpacity(0.4), width: 1),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.15),
@@ -916,10 +891,7 @@ class _DashboardPageState extends State<DashboardPage>
           stops: [0.0, 0.5, 1.0],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.2),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
         boxShadow: [
           BoxShadow(
             color: successColor.withOpacity(0.4),
@@ -1086,7 +1058,9 @@ class _DashboardPageState extends State<DashboardPage>
                               children: [
                                 Text(
                                   lastMonthDate != null
-                                      ? DateFormat('MMM yy').format(lastMonthDate)
+                                      ? DateFormat(
+                                          'MMM yy',
+                                        ).format(lastMonthDate)
                                       : 'Last',
                                   style: const TextStyle(
                                     color: Colors.white70,
@@ -1351,7 +1325,11 @@ class _DashboardPageState extends State<DashboardPage>
                     ),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.emoji_events_rounded, color: Colors.white, size: 18),
+                  child: const Icon(
+                    Icons.emoji_events_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 const Text(
@@ -1403,17 +1381,7 @@ class _DashboardPageState extends State<DashboardPage>
                                           .withOpacity(0.7),
                                     ],
                                   ),
-                                  borderRadius: BorderRadius.circular(14),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color:
-                                          gradientColors[index %
-                                                  gradientColors.length]
-                                              .withOpacity(0.3),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Center(
                                   child: Text(
@@ -1421,18 +1389,18 @@ class _DashboardPageState extends State<DashboardPage>
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 18,
+                                      fontSize: 12,
                                     ),
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 14),
+                              const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
                                   data.key,
                                   style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
                                     color: textPrimary,
                                   ),
                                   overflow: TextOverflow.ellipsis,
@@ -1446,7 +1414,7 @@ class _DashboardPageState extends State<DashboardPage>
                           style: const TextStyle(
                             color: textPrimary,
                             fontWeight: FontWeight.bold,
-                            fontSize: 17,
+                            fontSize: 12,
                           ),
                         ),
                       ],
@@ -1485,45 +1453,32 @@ class _DashboardPageState extends State<DashboardPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(28),
+            padding: const EdgeInsets.all(14),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [accentPurple, Color(0xFFB794F6)],
                     ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: accentPurple.withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 24),
+                  child: const Icon(
+                    Icons.receipt_long_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                 ),
-                const SizedBox(width: 14),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'All Monthly Receipts',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: textPrimary,
-                        fontSize: 22,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Complete transaction history',
-                      style: TextStyle(color: textSecondary, fontSize: 14),
-                    ),
-                  ],
+                const SizedBox(width: 10),
+                const Text(
+                  'Monthly Receipts',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: textPrimary,
+                    fontSize: 16,
+                    letterSpacing: -0.3,
+                  ),
                 ),
               ],
             ),
@@ -1534,8 +1489,8 @@ class _DashboardPageState extends State<DashboardPage>
             itemCount: sortedSummaries.length,
             separatorBuilder: (context, index) => Divider(
               height: 1,
-              indent: 28,
-              endIndent: 28,
+              indent: 14,
+              endIndent: 14,
               color: cardBorder.withOpacity(0.3),
             ),
             itemBuilder: (context, index) {
@@ -1549,20 +1504,22 @@ class _DashboardPageState extends State<DashboardPage>
                     ? BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            primaryColor.withOpacity(0.05),
+                            primaryColor.withOpacity(0.08),
                             primaryColor.withOpacity(0.02),
                           ],
                         ),
                       )
                     : null,
                 child: ListTile(
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 28,
-                    vertical: 12,
+                    horizontal: 14,
+                    vertical: 4,
                   ),
                   leading: Container(
-                    width: 56,
-                    height: 56,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
                       gradient: isCurrentMonth
                           ? const LinearGradient(
@@ -1570,20 +1527,11 @@ class _DashboardPageState extends State<DashboardPage>
                             )
                           : LinearGradient(
                               colors: [
-                                textSecondary.withOpacity(0.3),
-                                textSecondary.withOpacity(0.2),
+                                textSecondary.withOpacity(0.25),
+                                textSecondary.withOpacity(0.15),
                               ],
                             ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: isCurrentMonth
-                          ? [
-                              BoxShadow(
-                                color: primaryColor.withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                            ]
-                          : null,
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -1594,18 +1542,17 @@ class _DashboardPageState extends State<DashboardPage>
                             color: isCurrentMonth
                                 ? Colors.white
                                 : textSecondary,
-                            fontSize: 13,
+                            fontSize: 10,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 2),
                         Text(
-                          DateFormat('yyyy').format(summary.month),
+                          DateFormat('yy').format(summary.month),
                           style: TextStyle(
                             color: isCurrentMonth
                                 ? Colors.white.withOpacity(0.9)
                                 : textSecondary.withOpacity(0.7),
-                            fontSize: 11,
+                            fontSize: 9,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -1613,57 +1560,29 @@ class _DashboardPageState extends State<DashboardPage>
                     ),
                   ),
                   title: Text(
-                    DateFormat('MMMM yyyy').format(summary.month),
+                    DateFormat('MMM yyyy').format(summary.month),
                     style: TextStyle(
                       fontWeight: isCurrentMonth
                           ? FontWeight.bold
                           : FontWeight.w600,
-                      fontSize: 16,
+                      fontSize: 13,
                       color: textPrimary,
                     ),
                   ),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isCurrentMonth
-                                ? primaryColor.withOpacity(0.2)
-                                : textSecondary.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            '${summary.transactionCount} transaction${summary.transactionCount != 1 ? 's' : ''}',
-                            style: TextStyle(
-                              color: isCurrentMonth
-                                  ? primaryColor
-                                  : textSecondary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
+                  subtitle: Text(
+                    '${summary.transactionCount} txn${summary.transactionCount != 1 ? 's' : ''}',
+                    style: TextStyle(
+                      color: isCurrentMonth ? primaryColor : textSecondary,
+                      fontSize: 10,
                     ),
                   ),
-                  trailing: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        currencyFormat.format(summary.totalReceived),
-                        style: TextStyle(
-                          color: isCurrentMonth ? primaryColor : textPrimary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 17,
-                        ),
-                      ),
-                    ],
+                  trailing: Text(
+                    currencyFormat.format(summary.totalReceived),
+                    style: TextStyle(
+                      color: isCurrentMonth ? primaryColor : textPrimary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
               );
