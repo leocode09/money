@@ -1350,21 +1350,7 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   Widget _buildTransactionChart() {
-    // Get individual received transactions sorted by date
-    final receivedTransactions = _transactions
-        .where((t) => t.isReceived)
-        .toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
-
-    if (receivedTransactions.isEmpty) return const SizedBox.shrink();
-
-    // Limit to last 30 transactions for readability
-    final displayTransactions = receivedTransactions.length > 30
-        ? receivedTransactions.sublist(receivedTransactions.length - 30)
-        : receivedTransactions;
-
-    // Calculate interval for X-axis labels (show ~5-7 labels)
-    final labelInterval = (displayTransactions.length / 6).ceil().clamp(1, displayTransactions.length);
+    if (_monthlySummaries.isEmpty) return const SizedBox.shrink();
 
     return _buildGlassCard(
       child: Padding(
@@ -1376,7 +1362,7 @@ class _DashboardPageState extends State<DashboardPage>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Transaction History',
+                  'Income Trend',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                     color: textPrimary,
@@ -1396,7 +1382,7 @@ class _DashboardPageState extends State<DashboardPage>
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    '${displayTransactions.length} txns',
+                    '${_monthlySummaries.length} mo',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
@@ -1415,7 +1401,7 @@ class _DashboardPageState extends State<DashboardPage>
                     show: true,
                     drawVerticalLine: true,
                     horizontalInterval: null,
-                    verticalInterval: labelInterval.toDouble(),
+                    verticalInterval: 1,
                     getDrawingHorizontalLine: (value) => FlLine(
                       color: textSecondary.withValues(alpha: 0.15),
                       strokeWidth: 1,
@@ -1429,29 +1415,25 @@ class _DashboardPageState extends State<DashboardPage>
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
-                        interval: labelInterval.toDouble(),
                         getTitlesWidget: (value, meta) {
-                          final index = value.toInt();
-                          if (index < 0 || index >= displayTransactions.length) {
+                          if (value < 0 || value >= _monthlySummaries.length) {
                             return const SizedBox.shrink();
                           }
-                          final transaction = displayTransactions[index];
                           return Padding(
                             padding: const EdgeInsets.only(top: 8.0),
-                            child: Transform.rotate(
-                              angle: -0.5,
-                              child: Text(
-                                DateFormat('dd/MM').format(transaction.date),
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: textSecondary,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            child: Text(
+                              DateFormat(
+                                'MMM',
+                              ).format(_monthlySummaries[value.toInt()].month),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: textSecondary,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           );
                         },
-                        reservedSize: 40,
+                        reservedSize: 32,
                       ),
                     ),
                     leftTitles: AxisTitles(
@@ -1484,35 +1466,62 @@ class _DashboardPageState extends State<DashboardPage>
                     ),
                   ),
                   borderData: FlBorderData(show: false),
-                  minY: displayTransactions
-                          .map((t) => t.amount)
+                  minY:
+                      _monthlySummaries
+                          .map((s) => s.totalReceived)
                           .reduce((a, b) => a < b ? a : b) *
                       0.7,
-                  maxY: displayTransactions
-                          .map((t) => t.amount)
-                          .reduce((a, b) => a > b ? a : b) *
+                  maxY:
+                      [
+                        _monthlySummaries
+                            .map((s) => s.totalReceived)
+                            .reduce((a, b) => a > b ? a : b),
+                        nextMonthTarget['target'] as double,
+                      ].reduce((a, b) => a > b ? a : b) *
                       1.15,
+                  extraLinesData: ExtraLinesData(
+                    horizontalLines: [
+                      HorizontalLine(
+                        y: nextMonthTarget['target'] as double,
+                        color: successColor,
+                        strokeWidth: 2,
+                        dashArray: [8, 4],
+                        label: HorizontalLineLabel(
+                          show: true,
+                          alignment: Alignment.topRight,
+                          padding: const EdgeInsets.only(right: 8, bottom: 4),
+                          style: const TextStyle(
+                            color: successColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          labelResolver: (line) =>
+                              'Target: ${currencyFormat.format(line.y)}',
+                        ),
+                      ),
+                    ],
+                  ),
                   lineBarsData: [
                     LineChartBarData(
-                      spots: displayTransactions.asMap().entries.map((entry) {
+                      spots: _monthlySummaries.asMap().entries.map((entry) {
                         return FlSpot(
                           entry.key.toDouble(),
-                          entry.value.amount,
+                          entry.value.totalReceived,
                         );
                       }).toList(),
                       isCurved: true,
                       curveSmoothness: 0.35,
                       preventCurveOverShooting: true,
                       color: primaryColor,
-                      barWidth: 3,
+                      barWidth: 4,
                       isStrokeCapRound: true,
                       dotData: FlDotData(
                         show: true,
                         getDotPainter: (spot, percent, barData, index) {
                           return FlDotCirclePainter(
-                            radius: 5,
+                            radius: 6,
                             color: Colors.white,
-                            strokeWidth: 2,
+                            strokeWidth: 3,
                             strokeColor: primaryColor,
                           );
                         },
@@ -1542,29 +1551,21 @@ class _DashboardPageState extends State<DashboardPage>
                       ),
                       getTooltipItems: (touchedSpots) {
                         return touchedSpots.map((spot) {
-                          final transaction = displayTransactions[spot.x.toInt()];
+                          final monthData = _monthlySummaries[spot.x.toInt()];
                           return LineTooltipItem(
-                            '${DateFormat('dd MMM yyyy, HH:mm').format(transaction.date)}\n',
+                            '${DateFormat('MMM yyyy').format(monthData.month)}\n',
                             const TextStyle(
                               color: textPrimary,
                               fontWeight: FontWeight.w600,
-                              fontSize: 12,
+                              fontSize: 13,
                             ),
                             children: [
                               TextSpan(
-                                text: currencyFormat.format(transaction.amount),
+                                text: currencyFormat.format(spot.y),
                                 style: const TextStyle(
                                   color: primaryColor,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
-                                ),
-                              ),
-                              TextSpan(
-                                text: '\nFrom: ${transaction.counterparty}',
-                                style: const TextStyle(
-                                  color: textSecondary,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 11,
                                 ),
                               ),
                             ],
