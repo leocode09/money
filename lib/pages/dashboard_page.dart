@@ -21,7 +21,7 @@ class _DashboardPageState extends State<DashboardPage>
   int _selectedMonthIndex = 0;
   late AnimationController _animationController;
   late AnimationController _staggerController;
-  
+
   // Individual animations for each component
   late Animation<double> _bgAnimation;
   late Animation<double> _progressChartAnimation;
@@ -197,58 +197,58 @@ class _DashboardPageState extends State<DashboardPage>
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-    
+
     _staggerController = AnimationController(
       duration: const Duration(milliseconds: 1800),
       vsync: this,
     );
-    
+
     // Staggered animations with smooth curves for each component
     _bgAnimation = CurvedAnimation(
       parent: _staggerController,
       curve: const Interval(0.0, 0.3, curve: Curves.easeOutCubic),
     );
-    
+
     _progressChartAnimation = CurvedAnimation(
       parent: _staggerController,
       curve: const Interval(0.05, 0.35, curve: Curves.easeOutCubic),
     );
-    
+
     _transactionChartAnimation = CurvedAnimation(
       parent: _staggerController,
       curve: const Interval(0.1, 0.4, curve: Curves.easeOutCubic),
     );
-    
+
     _receiptsListAnimation = CurvedAnimation(
       parent: _staggerController,
       curve: const Interval(0.15, 0.45, curve: Curves.easeOutCubic),
     );
-    
+
     _heroCardAnimation = CurvedAnimation(
       parent: _staggerController,
       curve: const Interval(0.2, 0.5, curve: Curves.easeOutCubic),
     );
-    
+
     _monthlySummaryAnimation = CurvedAnimation(
       parent: _staggerController,
       curve: const Interval(0.25, 0.55, curve: Curves.easeOutCubic),
     );
-    
+
     _metricCardsAnimation = CurvedAnimation(
       parent: _staggerController,
       curve: const Interval(0.3, 0.6, curve: Curves.easeOutCubic),
     );
-    
+
     _targetCardAnimation = CurvedAnimation(
       parent: _staggerController,
       curve: const Interval(0.35, 0.65, curve: Curves.easeOutCubic),
     );
-    
+
     _topSendersAnimation = CurvedAnimation(
       parent: _staggerController,
       curve: const Interval(0.4, 0.7, curve: Curves.easeOutCubic),
     );
-    
+
     _processTransactions();
     _staggerController.forward();
   }
@@ -324,10 +324,7 @@ class _DashboardPageState extends State<DashboardPage>
                 AnimatedBuilder(
                   animation: _bgAnimation,
                   builder: (context, child) {
-                    return Opacity(
-                      opacity: _bgAnimation.value,
-                      child: child,
-                    );
+                    return Opacity(opacity: _bgAnimation.value, child: child);
                   },
                   child: _buildGradientBackground(),
                 ),
@@ -419,9 +416,12 @@ class _DashboardPageState extends State<DashboardPage>
     return AnimatedBuilder(
       animation: _staggerController,
       builder: (context, child) {
-        final pulseValue = (_staggerController.value * 2 * 3.14159).clamp(0.0, 6.28);
+        final pulseValue = (_staggerController.value * 2 * 3.14159).clamp(
+          0.0,
+          6.28,
+        );
         final pulseFactor = 1.0 + (0.05 * (1 + (pulseValue).abs() / 6.28));
-        
+
         return Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -446,8 +446,12 @@ class _DashboardPageState extends State<DashboardPage>
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
                         colors: [
-                          primaryColor.withValues(alpha: 0.25 * _staggerController.value),
-                          primaryColor.withValues(alpha: 0.1 * _staggerController.value),
+                          primaryColor.withValues(
+                            alpha: 0.25 * _staggerController.value,
+                          ),
+                          primaryColor.withValues(
+                            alpha: 0.1 * _staggerController.value,
+                          ),
                           primaryColor.withValues(alpha: 0.0),
                         ],
                       ),
@@ -468,8 +472,12 @@ class _DashboardPageState extends State<DashboardPage>
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
                         colors: [
-                          accentPurple.withValues(alpha: 0.2 * _staggerController.value),
-                          accentPurple.withValues(alpha: 0.05 * _staggerController.value),
+                          accentPurple.withValues(
+                            alpha: 0.2 * _staggerController.value,
+                          ),
+                          accentPurple.withValues(
+                            alpha: 0.05 * _staggerController.value,
+                          ),
                           accentPurple.withValues(alpha: 0.0),
                         ],
                       ),
@@ -490,8 +498,12 @@ class _DashboardPageState extends State<DashboardPage>
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
                         colors: [
-                          primaryLight.withValues(alpha: 0.15 * _staggerController.value),
-                          primaryColor.withValues(alpha: 0.05 * _staggerController.value),
+                          primaryLight.withValues(
+                            alpha: 0.15 * _staggerController.value,
+                          ),
+                          primaryColor.withValues(
+                            alpha: 0.05 * _staggerController.value,
+                          ),
                           Colors.transparent,
                         ],
                       ),
@@ -562,7 +574,10 @@ class _DashboardPageState extends State<DashboardPage>
           stops: [0.0, 0.6, 1.0],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: primaryLight.withValues(alpha: 0.3), width: 1),
+        border: Border.all(
+          color: primaryLight.withValues(alpha: 0.3),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
             color: primaryColor.withValues(alpha: 0.4),
@@ -586,7 +601,10 @@ class _DashboardPageState extends State<DashboardPage>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
-                    colors: [Colors.white.withValues(alpha: 0.2), Colors.transparent],
+                    colors: [
+                      Colors.white.withValues(alpha: 0.2),
+                      Colors.transparent,
+                    ],
                   ),
                 ),
               ),
@@ -601,7 +619,7 @@ class _DashboardPageState extends State<DashboardPage>
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(
@@ -622,15 +640,22 @@ class _DashboardPageState extends State<DashboardPage>
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    currencyFormat.format(totalReceivedAmount),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -1.5,
-                      height: 1.0,
-                    ),
+                  AnimatedBuilder(
+                    animation: _heroCardAnimation,
+                    builder: (context, child) {
+                      final animatedAmount =
+                          totalReceivedAmount * _heroCardAnimation.value;
+                      return Text(
+                        currencyFormat.format(animatedAmount),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 32,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -1.5,
+                          height: 1.0,
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 10),
                   Container(
@@ -798,14 +823,22 @@ class _DashboardPageState extends State<DashboardPage>
               ],
             ),
             const SizedBox(height: 10),
-            Text(
-              currencyFormat.format(selectedSummary.totalReceived),
-              style: const TextStyle(
-                color: textPrimary,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                letterSpacing: -1,
-              ),
+            AnimatedBuilder(
+              animation: _monthlySummaryAnimation,
+              builder: (context, child) {
+                final animatedAmount =
+                    selectedSummary.totalReceived *
+                    _monthlySummaryAnimation.value;
+                return Text(
+                  currencyFormat.format(animatedAmount),
+                  style: const TextStyle(
+                    color: textPrimary,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: -1,
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 4),
             Text(
@@ -979,7 +1012,7 @@ class _DashboardPageState extends State<DashboardPage>
     // Calculate stagger delay based on index (each card delays by 100ms equivalent)
     final startDelay = 0.30 + (index * 0.05);
     final endDelay = 0.60 + (index * 0.05);
-    
+
     final animation = CurvedAnimation(
       parent: _staggerController,
       curve: Interval(
@@ -1104,7 +1137,10 @@ class _DashboardPageState extends State<DashboardPage>
           stops: [0.0, 0.5, 1.0],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.2),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
             color: successColor.withValues(alpha: 0.4),
@@ -1216,14 +1252,21 @@ class _DashboardPageState extends State<DashboardPage>
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    currencyFormat.format(target),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: -1,
-                    ),
+                  AnimatedBuilder(
+                    animation: _targetCardAnimation,
+                    builder: (context, child) {
+                      final animatedTarget =
+                          target * _targetCardAnimation.value;
+                      return Text(
+                        currencyFormat.format(animatedTarget),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -1,
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 10),
                   Container(
@@ -1428,12 +1471,14 @@ class _DashboardPageState extends State<DashboardPage>
                           .map((s) => s.totalReceived)
                           .reduce((a, b) => a < b ? a : b) *
                       0.7,
-                  maxY: [
-                    _monthlySummaries
-                        .map((s) => s.totalReceived)
-                        .reduce((a, b) => a > b ? a : b),
-                    nextMonthTarget['target'] as double,
-                  ].reduce((a, b) => a > b ? a : b) * 1.15,
+                  maxY:
+                      [
+                        _monthlySummaries
+                            .map((s) => s.totalReceived)
+                            .reduce((a, b) => a > b ? a : b),
+                        nextMonthTarget['target'] as double,
+                      ].reduce((a, b) => a > b ? a : b) *
+                      1.15,
                   extraLinesData: ExtraLinesData(
                     horizontalLines: [
                       HorizontalLine(
@@ -1450,7 +1495,8 @@ class _DashboardPageState extends State<DashboardPage>
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                           ),
-                          labelResolver: (line) => 'Target: ${currencyFormat.format(line.y)}',
+                          labelResolver: (line) =>
+                              'Target: ${currencyFormat.format(line.y)}',
                         ),
                       ),
                     ],
@@ -1590,18 +1636,25 @@ class _DashboardPageState extends State<DashboardPage>
               ],
             ),
             const SizedBox(height: 16),
-            // Current amount display
+            // Current amount display with animation
             Center(
               child: Column(
                 children: [
-                  Text(
-                    currencyFormat.format(currentAmount),
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      color: textPrimary,
-                      letterSpacing: -0.5,
-                    ),
+                  AnimatedBuilder(
+                    animation: _progressChartAnimation,
+                    builder: (context, child) {
+                      final animatedAmount =
+                          currentAmount * _progressChartAnimation.value;
+                      return Text(
+                        currencyFormat.format(animatedAmount),
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          color: textPrimary,
+                          letterSpacing: -0.5,
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -1682,19 +1735,26 @@ class _DashboardPageState extends State<DashboardPage>
                     : color.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(
-                '${displayProgress.toStringAsFixed(1)}%',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: isAchieved ? successColor : color,
-                ),
+              child: AnimatedBuilder(
+                animation: _progressChartAnimation,
+                builder: (context, child) {
+                  final animatedProgress =
+                      displayProgress * _progressChartAnimation.value;
+                  return Text(
+                    '${animatedProgress.toStringAsFixed(1)}%',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: isAchieved ? successColor : color,
+                    ),
+                  );
+                },
               ),
             ),
           ],
         ),
         const SizedBox(height: 8),
-        // Progress bar
+        // Animated Progress bar
         Stack(
           children: [
             Container(
@@ -1704,24 +1764,33 @@ class _DashboardPageState extends State<DashboardPage>
                 borderRadius: BorderRadius.circular(5),
               ),
             ),
-            FractionallySizedBox(
-              widthFactor: displayProgress / 100,
-              child: Container(
-                height: 10,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [color, color.withValues(alpha: 0.7)],
-                  ),
-                  borderRadius: BorderRadius.circular(5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withValues(alpha: 0.4),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
+            AnimatedBuilder(
+              animation: _progressChartAnimation,
+              builder: (context, child) {
+                final animatedWidth =
+                    (displayProgress / 100) * _progressChartAnimation.value;
+                return FractionallySizedBox(
+                  widthFactor: animatedWidth.clamp(0.0, 1.0),
+                  child: Container(
+                    height: 10,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [color, color.withValues(alpha: 0.7)],
+                      ),
+                      borderRadius: BorderRadius.circular(5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: color.withValues(
+                            alpha: 0.4 * _progressChartAnimation.value,
+                          ),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -1808,81 +1877,112 @@ class _DashboardPageState extends State<DashboardPage>
                 const Color(0xFF10B981),
               ];
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 28,
-                                height: 28,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      gradientColors[index %
-                                          gradientColors.length],
-                                      gradientColors[index %
-                                              gradientColors.length]
-                                          .withValues(alpha: 0.7),
-                                    ],
+              // Staggered animation for each sender row
+              final rowAnimation = CurvedAnimation(
+                parent: _staggerController,
+                curve: Interval(
+                  (0.40 + (index * 0.04)).clamp(0.0, 1.0),
+                  (0.70 + (index * 0.04)).clamp(0.0, 1.0),
+                  curve: Curves.easeOutCubic,
+                ),
+              );
+
+              return AnimatedBuilder(
+                animation: rowAnimation,
+                builder: (context, child) {
+                  return Transform.translate(
+                    offset: Offset(30 * (1 - rowAnimation.value), 0),
+                    child: Opacity(
+                      opacity: rowAnimation.value.clamp(0.0, 1.0),
+                      child: child,
+                    ),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        gradientColors[index %
+                                            gradientColors.length],
+                                        gradientColors[index %
+                                                gradientColors.length]
+                                            .withValues(alpha: 0.7),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    '${index + 1}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
+                                  child: Center(
+                                    child: Text(
+                                      '${index + 1}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  data.key,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                    color: textPrimary,
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    data.key,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                      color: textPrimary,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  overflow: TextOverflow.ellipsis,
                                 ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            currencyFormat.format(data.value),
+                            style: const TextStyle(
+                              color: textPrimary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: AnimatedBuilder(
+                          animation: _topSendersAnimation,
+                          builder: (context, child) {
+                            return LinearProgressIndicator(
+                              value:
+                                  (percentage / 100) *
+                                  _topSendersAnimation.value,
+                              minHeight: 8,
+                              backgroundColor: textSecondary.withValues(
+                                alpha: 0.2,
                               ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          currencyFormat.format(data.value),
-                          style: const TextStyle(
-                            color: textPrimary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: LinearProgressIndicator(
-                        value: percentage / 100,
-                        minHeight: 8,
-                        backgroundColor: textSecondary.withOpacity(0.2),
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          gradientColors[index % gradientColors.length],
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                gradientColors[index % gradientColors.length],
+                              ),
+                            );
+                          },
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             }).toList(),
@@ -1942,7 +2042,7 @@ class _DashboardPageState extends State<DashboardPage>
               height: 1,
               indent: 14,
               endIndent: 14,
-              color: cardBorder.withOpacity(0.3),
+              color: cardBorder.withValues(alpha: 0.3),
             ),
             itemBuilder: (context, index) {
               final summary = sortedSummaries[index];
@@ -1955,8 +2055,8 @@ class _DashboardPageState extends State<DashboardPage>
                     ? BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            primaryColor.withOpacity(0.08),
-                            primaryColor.withOpacity(0.02),
+                            primaryColor.withValues(alpha: 0.08),
+                            primaryColor.withValues(alpha: 0.02),
                           ],
                         ),
                       )
@@ -1978,8 +2078,8 @@ class _DashboardPageState extends State<DashboardPage>
                             )
                           : LinearGradient(
                               colors: [
-                                textSecondary.withOpacity(0.25),
-                                textSecondary.withOpacity(0.15),
+                                textSecondary.withValues(alpha: 0.25),
+                                textSecondary.withValues(alpha: 0.15),
                               ],
                             ),
                       borderRadius: BorderRadius.circular(10),
@@ -2001,8 +2101,8 @@ class _DashboardPageState extends State<DashboardPage>
                           DateFormat('yy').format(summary.month),
                           style: TextStyle(
                             color: isCurrentMonth
-                                ? Colors.white.withOpacity(0.9)
-                                : textSecondary.withOpacity(0.7),
+                                ? Colors.white.withValues(alpha: 0.9)
+                                : textSecondary.withValues(alpha: 0.7),
                             fontSize: 9,
                             fontWeight: FontWeight.w600,
                           ),

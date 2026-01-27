@@ -71,7 +71,7 @@ class MyApp extends StatelessWidget {
             backgroundColor: primaryColor,
             foregroundColor: bgColor,
             elevation: 8,
-            shadowColor: primaryColor.withOpacity(0.4),
+            shadowColor: primaryColor.withValues(alpha: 0.4),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
