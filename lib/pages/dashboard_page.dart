@@ -1187,7 +1187,7 @@ class _DashboardPageState extends State<DashboardPage>
             ),
             const SizedBox(height: 16),
             SizedBox(
-              height: 180,
+              height: 250,
               child: LineChart(
                 LineChartData(
                   gridData: FlGridData(
@@ -1264,11 +1264,33 @@ class _DashboardPageState extends State<DashboardPage>
                           .map((s) => s.totalReceived)
                           .reduce((a, b) => a < b ? a : b) *
                       0.7,
-                  maxY:
-                      _monthlySummaries
-                          .map((s) => s.totalReceived)
-                          .reduce((a, b) => a > b ? a : b) *
-                      1.15,
+                  maxY: [
+                    _monthlySummaries
+                        .map((s) => s.totalReceived)
+                        .reduce((a, b) => a > b ? a : b),
+                    nextMonthTarget['target'] as double,
+                  ].reduce((a, b) => a > b ? a : b) * 1.15,
+                  extraLinesData: ExtraLinesData(
+                    horizontalLines: [
+                      HorizontalLine(
+                        y: nextMonthTarget['target'] as double,
+                        color: successColor,
+                        strokeWidth: 2,
+                        dashArray: [8, 4],
+                        label: HorizontalLineLabel(
+                          show: true,
+                          alignment: Alignment.topRight,
+                          padding: const EdgeInsets.only(right: 8, bottom: 4),
+                          style: const TextStyle(
+                            color: successColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          labelResolver: (line) => 'Target: ${currencyFormat.format(line.y)}',
+                        ),
+                      ),
+                    ],
+                  ),
                   lineBarsData: [
                     LineChartBarData(
                       spots: _monthlySummaries.asMap().entries.map((entry) {
