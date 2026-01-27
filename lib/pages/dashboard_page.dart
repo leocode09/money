@@ -64,7 +64,7 @@ class _DashboardPageState extends State<DashboardPage>
 
   Map<String, double> get counterpartyTotals {
     final totals = <String, double>{};
-    for (var tx in _transactions.where((t) => t.isReceived)) {
+-7[]    for (var tx in _transactions.where((t) => t.isReceived)) {
       totals[tx.counterparty] = (totals[tx.counterparty] ?? 0) + tx.amount;
     }
     return totals;
