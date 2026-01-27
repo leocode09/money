@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
@@ -27,16 +28,21 @@ class _DashboardPageState extends State<DashboardPage>
     decimalDigits: 0,
   );
 
-  // Ripple-inspired dark color palette
-  static const primaryColor = Color(0xFFC77B58);      // Warm coral/orange
-  static const primaryDark = Color(0xFFB86A47);       // Darker coral
-  static const accentColor = Color(0xFFD4956A);       // Warm sand
-  static const successColor = Color(0xFF4ECDC4);      // Warm teal
-  static const dangerColor = Color(0xFFE57373);       // Soft coral red
-  static const bgColor = Color(0xFF1A1018);           // Deep dark purple-brown
-  static const cardColor = Color(0xFF2D1B2E);         // Dark purple card
-  static const textPrimary = Color(0xFFF5EBE0);       // Cream white
-  static const textSecondary = Color(0xFFB8A99A);     // Muted cream
+  // Ripple-inspired epic dark color palette
+  static const primaryColor = Color(0xFFE8956A); // Vibrant warm coral
+  static const primaryDark = Color(0xFFD4734A); // Rich coral
+  static const primaryLight = Color(0xFFFFB088); // Light coral glow
+  static const accentColor = Color(0xFFFFCBA4); // Warm golden sand
+  static const accentPurple = Color(0xFF9D7BEA); // Soft purple accent
+  static const successColor = Color(0xFF5EEAD4); // Vibrant teal
+  static const dangerColor = Color(0xFFFF8A8A); // Soft coral red
+  static const bgColor = Color(0xFF0D0A0F); // Deep rich black-purple
+  static const bgGradient1 = Color(0xFF1A1020); // Dark purple
+  static const bgGradient2 = Color(0xFF2A1830); // Warm purple
+  static const cardColor = Color(0xFF1E1525); // Dark purple glass
+  static const cardBorder = Color(0xFF3D2D4A); // Subtle purple border
+  static const textPrimary = Color(0xFFFFF8F0); // Warm white
+  static const textSecondary = Color(0xFFCBB9A8); // Muted warm cream
 
   double get totalReceivedAmount => _transactions
       .where((t) => t.isReceived)
@@ -78,8 +84,9 @@ class _DashboardPageState extends State<DashboardPage>
     }
 
     // Sort by month ascending
-    final sortedSummaries = List<MonthlyTransactionSummary>.from(_monthlySummaries)
-      ..sort((a, b) => a.month.compareTo(b.month));
+    final sortedSummaries = List<MonthlyTransactionSummary>.from(
+      _monthlySummaries,
+    )..sort((a, b) => a.month.compareTo(b.month));
 
     // Exclude current month
     final now = DateTime.now();
@@ -209,41 +216,129 @@ class _DashboardPageState extends State<DashboardPage>
       backgroundColor: bgColor,
       body: _transactions.isEmpty
           ? const Center(child: Text('No transactions found'))
-          : CustomScrollView(
-              slivers: [
-                _buildAppBar(),
-                SliverToBoxAdapter(
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, 0.1),
-                        end: Offset.zero,
-                      ).animate(_slideAnimation),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 8),
-                          _buildHeroCard(),
-                          const SizedBox(height: 20),
-                          _buildMonthlySummaryCard(),
-                          const SizedBox(height: 20),
-                          _buildMetricCards(),
-                          const SizedBox(height: 20),
-                          _buildNextMonthTargetCard(),
-                          const SizedBox(height: 20),
-                          _buildTransactionChart(),
-                          const SizedBox(height: 20),
-                          _buildTopSendersCard(),
-                          const SizedBox(height: 20),
-                          _buildMonthlyReceiptsList(),
-                          const SizedBox(height: 40),
-                        ],
+          : Stack(
+              children: [
+                // Epic animated gradient background
+                _buildGradientBackground(),
+                // Main content
+                CustomScrollView(
+                  slivers: [
+                    _buildAppBar(),
+                    SliverToBoxAdapter(
+                      child: FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0, 0.1),
+                            end: Offset.zero,
+                          ).animate(_slideAnimation),
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 8),
+                              _buildHeroCard(),
+                              const SizedBox(height: 24),
+                              _buildMonthlySummaryCard(),
+                              const SizedBox(height: 24),
+                              _buildMetricCards(),
+                              const SizedBox(height: 24),
+                              _buildNextMonthTargetCard(),
+                              const SizedBox(height: 24),
+                              _buildTransactionChart(),
+                              const SizedBox(height: 24),
+                              _buildTopSendersCard(),
+                              const SizedBox(height: 24),
+                              _buildMonthlyReceiptsList(),
+                              const SizedBox(height: 50),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
+    );
+  }
+
+  /// Epic flowing gradient background inspired by Ripple
+  Widget _buildGradientBackground() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            bgColor,
+            bgGradient1,
+            bgGradient2,
+            bgGradient1,
+            bgColor,
+          ],
+          stops: [0.0, 0.25, 0.5, 0.75, 1.0],
+        ),
+      ),
+      child: Stack(
+        children: [
+          // Flowing coral orb - top right
+          Positioned(
+            top: -100,
+            right: -80,
+            child: Container(
+              width: 350,
+              height: 350,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    primaryColor.withOpacity(0.25),
+                    primaryColor.withOpacity(0.1),
+                    primaryColor.withOpacity(0.0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Purple accent orb - center left
+          Positioned(
+            top: 300,
+            left: -120,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    accentPurple.withOpacity(0.2),
+                    accentPurple.withOpacity(0.05),
+                    accentPurple.withOpacity(0.0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Warm coral flow - bottom
+          Positioned(
+            bottom: 100,
+            right: -50,
+            child: Container(
+              width: 400,
+              height: 400,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    primaryLight.withOpacity(0.15),
+                    primaryColor.withOpacity(0.05),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -252,26 +347,39 @@ class _DashboardPageState extends State<DashboardPage>
       expandedHeight: 140,
       floating: false,
       pinned: true,
-      backgroundColor: cardColor,
+      backgroundColor: Colors.transparent,
       foregroundColor: textPrimary,
       elevation: 0,
       flexibleSpace: FlexibleSpaceBar(
-        background: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [cardColor, bgColor],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+        background: ClipRRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    cardColor.withOpacity(0.8),
+                    bgColor.withOpacity(0.6),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              ),
             ),
           ),
         ),
-        title: const Text(
-          'Transaction Dashboard',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: textPrimary,
-            fontSize: 20,
-            letterSpacing: -0.5,
+        title: ShaderMask(
+          shaderCallback: (bounds) => const LinearGradient(
+            colors: [textPrimary, accentColor],
+          ).createShader(bounds),
+          child: const Text(
+            'Transaction Dashboard',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              fontSize: 22,
+              letterSpacing: -0.5,
+            ),
           ),
         ),
         titlePadding: const EdgeInsets.only(left: 24, bottom: 16),
@@ -284,121 +392,202 @@ class _DashboardPageState extends State<DashboardPage>
       margin: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [primaryColor, primaryDark],
+          colors: [primaryColor, primaryDark, Color(0xFFB85A3A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          stops: [0.0, 0.6, 1.0],
         ),
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(
+          color: primaryLight.withOpacity(0.3),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
-            color: primaryColor.withOpacity(0.4),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+            color: primaryColor.withOpacity(0.5),
+            blurRadius: 40,
+            offset: const Offset(0, 20),
+            spreadRadius: -5,
+          ),
+          BoxShadow(
+            color: primaryLight.withOpacity(0.2),
+            blurRadius: 60,
+            offset: const Offset(0, 10),
+            spreadRadius: -10,
           ),
         ],
       ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -50,
-            right: -50,
-            child: Container(
-              width: 150,
-              height: 150,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.1),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -30,
-            left: -30,
-            child: Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.05),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(
-                        Icons.account_balance_wallet_rounded,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    const Text(
-                      'Total Received',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  currencyFormat.format(totalReceivedAmount),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 48,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: -2,
-                    height: 1.1,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.trending_up,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${_transactions.where((t) => t.isReceived).length} transactions',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(32),
+        child: Stack(
+          children: [
+            // Flowing light orbs
+            Positioned(
+              top: -80,
+              right: -60,
+              child: Container(
+                width: 200,
+                height: 200,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      Colors.white.withOpacity(0.2),
+                      Colors.white.withOpacity(0.05),
+                      Colors.transparent,
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-        ],
+            Positioned(
+              bottom: -50,
+              left: -40,
+              child: Container(
+                width: 150,
+                height: 150,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      Colors.white.withOpacity(0.15),
+                      Colors.white.withOpacity(0.03),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Subtle noise/texture overlay
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withOpacity(0.1),
+                      Colors.transparent,
+                      Colors.black.withOpacity(0.1),
+                    ],
+                    stops: const [0.0, 0.3, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.account_balance_wallet_rounded,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Total Received',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                          Text(
+                            'All time earnings',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.7),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 28),
+                  ShaderMask(
+                    shaderCallback: (bounds) => LinearGradient(
+                      colors: [
+                        Colors.white,
+                        Colors.white.withOpacity(0.9),
+                      ],
+                    ).createShader(bounds),
+                    child: Text(
+                      currencyFormat.format(totalReceivedAmount),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 52,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -2.5,
+                        height: 1.0,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.25),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.trending_up,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          '${_transactions.where((t) => t.isReceived).length} transactions',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -897,7 +1086,9 @@ class _DashboardPageState extends State<DashboardPage>
                             children: [
                               Text(
                                 lastMonthDate != null
-                                    ? DateFormat('MMM yyyy').format(lastMonthDate)
+                                    ? DateFormat(
+                                        'MMM yyyy',
+                                      ).format(lastMonthDate)
                                     : 'Last Month',
                                 style: const TextStyle(
                                   color: Colors.white70,
@@ -1022,13 +1213,13 @@ class _DashboardPageState extends State<DashboardPage>
                     drawVerticalLine: true,
                     horizontalInterval: null,
                     verticalInterval: 1,
-                    getDrawingHorizontalLine: (value) => const FlLine(
-                      color: Color(0xFFF1F5F9),
-                      strokeWidth: 1.5,
+                    getDrawingHorizontalLine: (value) => FlLine(
+                      color: textSecondary.withOpacity(0.15),
+                      strokeWidth: 1,
                     ),
-                    getDrawingVerticalLine: (value) => const FlLine(
-                      color: Color(0xFFF1F5F9),
-                      strokeWidth: 1.5,
+                    getDrawingVerticalLine: (value) => FlLine(
+                      color: textSecondary.withOpacity(0.15),
+                      strokeWidth: 1,
                     ),
                   ),
                   titlesData: FlTitlesData(
@@ -1138,7 +1329,7 @@ class _DashboardPageState extends State<DashboardPage>
                   lineTouchData: LineTouchData(
                     enabled: true,
                     touchTooltipData: LineTouchTooltipData(
-                      tooltipBgColor: textPrimary,
+                      tooltipBgColor: cardColor,
                       tooltipRoundedRadius: 12,
                       tooltipPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -1150,7 +1341,7 @@ class _DashboardPageState extends State<DashboardPage>
                           return LineTooltipItem(
                             '${DateFormat('MMM yyyy').format(monthData.month)}\n',
                             const TextStyle(
-                              color: Colors.white,
+                              color: textPrimary,
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
                             ),
@@ -1158,7 +1349,7 @@ class _DashboardPageState extends State<DashboardPage>
                               TextSpan(
                                 text: currencyFormat.format(spot.y),
                                 style: const TextStyle(
-                                  color: Colors.white,
+                                  color: primaryColor,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
                                 ),
@@ -1320,7 +1511,7 @@ class _DashboardPageState extends State<DashboardPage>
                       child: LinearProgressIndicator(
                         value: percentage / 100,
                         minHeight: 8,
-                        backgroundColor: const Color(0xFFF1F5F9),
+                        backgroundColor: textSecondary.withOpacity(0.2),
                         valueColor: AlwaysStoppedAnimation<Color>(
                           gradientColors[index % gradientColors.length],
                         ),
@@ -1391,11 +1582,11 @@ class _DashboardPageState extends State<DashboardPage>
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: sortedSummaries.length,
-            separatorBuilder: (context, index) => const Divider(
+            separatorBuilder: (context, index) => Divider(
               height: 1,
               indent: 28,
               endIndent: 28,
-              color: Color(0xFFF1F5F9),
+              color: textSecondary.withOpacity(0.15),
             ),
             itemBuilder: (context, index) {
               final summary = sortedSummaries[index];
@@ -1429,8 +1620,8 @@ class _DashboardPageState extends State<DashboardPage>
                             )
                           : LinearGradient(
                               colors: [
-                                const Color(0xFFE2E8F0),
-                                const Color(0xFFCBD5E1),
+                                textSecondary.withOpacity(0.3),
+                                textSecondary.withOpacity(0.2),
                               ],
                             ),
                       borderRadius: BorderRadius.circular(16),
@@ -1492,8 +1683,8 @@ class _DashboardPageState extends State<DashboardPage>
                           ),
                           decoration: BoxDecoration(
                             color: isCurrentMonth
-                                ? primaryColor.withOpacity(0.1)
-                                : const Color(0xFFF1F5F9),
+                                ? primaryColor.withOpacity(0.2)
+                                : textSecondary.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
