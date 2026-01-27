@@ -19,6 +19,7 @@ class _DashboardPageState extends State<DashboardPage>
   late List<Transaction> _transactions;
   late List<MonthlyTransactionSummary> _monthlySummaries;
   int _selectedMonthIndex = 0;
+  int _selectedProgressMonthIndex = 0;
   late AnimationController _animationController;
   late AnimationController _staggerController;
 
@@ -143,29 +144,47 @@ class _DashboardPageState extends State<DashboardPage>
     };
   }
 
-  /// Gets current month progress compared to previous month and target
-  Map<String, dynamic> get currentMonthProgress {
-    final now = DateTime.now();
-    final currentMonth = DateTime(now.year, now.month);
+  /// Gets month progress compared to previous month
+  /// Uses the selected progress month index to determine which month to show
+  Map<String, dynamic> getMonthProgress(int monthIndex) {
+    if (_monthlySummaries.isEmpty) {
+      return {
+        'currentAmount': 0.0,
+        'previousMonthAmount': 0.0,
+        'previousProgress': 0.0,
+        'previousRemaining': 0.0,
+        'selectedMonth': DateTime.now(),
+      };
+    }
 
-    // Find current month data
-    final currentMonthData = _monthlySummaries.firstWhere(
+    // Sort summaries descending (newest first) for the dropdown
+    final sortedSummaries = List<MonthlyTransactionSummary>.from(
+      _monthlySummaries,
+    )..sort((a, b) => b.month.compareTo(a.month));
+
+    // Clamp index to valid range
+    final clampedIndex = monthIndex.clamp(0, sortedSummaries.length - 1);
+    final selectedMonthData = sortedSummaries[clampedIndex];
+
+    // Find the previous month's data
+    final previousMonthDate = DateTime(
+      selectedMonthData.month.year,
+      selectedMonthData.month.month - 1,
+    );
+    final previousMonthData = _monthlySummaries.firstWhere(
       (s) =>
-          s.month.year == currentMonth.year &&
-          s.month.month == currentMonth.month,
+          s.month.year == previousMonthDate.year &&
+          s.month.month == previousMonthDate.month,
       orElse: () => MonthlyTransactionSummary(
-        month: currentMonth,
+        month: previousMonthDate,
         totalReceived: 0,
         totalSent: 0,
         transactionCount: 0,
       ),
     );
 
-    final target = nextMonthTarget;
-    final targetAmount = target['target'] as double;
-    final previousMonthAmount = target['lastMonth'] as double;
-
-    final currentAmount = currentMonthData.totalReceived;
+    final currentAmount = selectedMonthData.totalReceived;
+    final previousMonthAmount = previousMonthData.totalReceived;
 
     // Progress towards previous month
     final previousProgress = previousMonthAmount > 0
@@ -173,21 +192,19 @@ class _DashboardPageState extends State<DashboardPage>
         : 0.0;
     final previousRemaining = previousMonthAmount - currentAmount;
 
-    // Progress towards target
-    final targetProgress = targetAmount > 0
-        ? (currentAmount / targetAmount * 100).clamp(0.0, 200.0)
-        : 0.0;
-    final targetRemaining = targetAmount - currentAmount;
-
     return {
       'currentAmount': currentAmount,
       'previousMonthAmount': previousMonthAmount,
       'previousProgress': previousProgress,
       'previousRemaining': previousRemaining,
-      'targetAmount': targetAmount,
-      'targetProgress': targetProgress,
-      'targetRemaining': targetRemaining,
+      'selectedMonth': selectedMonthData.month,
+      'previousMonth': previousMonthDate,
     };
+  }
+
+  /// Gets current month progress (for backward compatibility)
+  Map<String, dynamic> get currentMonthProgress {
+    return getMonthProgress(_selectedProgressMonthIndex);
   }
 
   @override
@@ -250,7 +267,12 @@ class _DashboardPageState extends State<DashboardPage>
     );
 
     _processTransactions();
-    _staggerController.forward();
+    
+    // Delay animation start until after the first frame is rendered
+    // This ensures AnimatedBuilder widgets are mounted and listening
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _staggerController.forward();
+    });
   }
 
   @override
@@ -1584,19 +1606,23 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   Widget _buildMonthProgressChart() {
-    final progress = currentMonthProgress;
-    final currentAmount = progress['currentAmount'] as double;
-    final previousMonthAmount = progress['previousMonthAmount'] as double;
-    final targetAmount = progress['targetAmount'] as double;
+    // Sort summaries descending (newest first) for the dropdown
+    final sortedSummaries = List<MonthlyTransactionSummary>.from(
+      _monthlySummaries,
+    )..sort((a, b) => b.month.compareTo(a.month));
 
-    if (previousMonthAmount == 0 && targetAmount == 0) {
+    if (sortedSummaries.isEmpty) {
       return const SizedBox.shrink();
     }
 
+    final progress = getMonthProgress(_selectedProgressMonthIndex);
+    final currentAmount = progress['currentAmount'] as double;
+    final previousMonthAmount = progress['previousMonthAmount'] as double;
+    final selectedMonth = progress['selectedMonth'] as DateTime;
+    final previousMonth = progress['previousMonth'] as DateTime?;
+
     final previousProgress = progress['previousProgress'] as double;
     final previousRemaining = progress['previousRemaining'] as double;
-    final targetProgress = progress['targetProgress'] as double;
-    final targetRemaining = progress['targetRemaining'] as double;
 
     return _buildGlassCard(
       child: Padding(
@@ -1605,32 +1631,89 @@ class _DashboardPageState extends State<DashboardPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            accentPurple.withValues(alpha: 0.3),
+                            accentPurple.withValues(alpha: 0.1),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.trending_up_rounded,
+                        color: accentPurple,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'Monthly Progress',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: textPrimary,
+                        fontSize: 16,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                  ],
+                ),
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        accentPurple.withValues(alpha: 0.3),
-                        accentPurple.withValues(alpha: 0.1),
+                        accentPurple.withValues(alpha: 0.15),
+                        accentPurple.withValues(alpha: 0.08),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: accentPurple.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.trending_up_rounded,
-                    color: accentPurple,
-                    size: 18,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                const Text(
-                  'Monthly Progress',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: textPrimary,
-                    fontSize: 16,
-                    letterSpacing: -0.3,
+                  child: DropdownButton<int>(
+                    value: _selectedProgressMonthIndex.clamp(
+                      0,
+                      sortedSummaries.length - 1,
+                    ),
+                    underline: const SizedBox.shrink(),
+                    isDense: true,
+                    icon: const Icon(
+                      Icons.keyboard_arrow_down,
+                      color: accentPurple,
+                      size: 18,
+                    ),
+                    items: sortedSummaries.asMap().entries.map((entry) {
+                      return DropdownMenuItem<int>(
+                        value: entry.key,
+                        child: Text(
+                          DateFormat('MMM yy').format(entry.value.month),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: accentPurple,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedProgressMonthIndex = value;
+                        });
+                      }
+                    },
                   ),
                 ),
               ],
@@ -1658,7 +1741,7 @@ class _DashboardPageState extends State<DashboardPage>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Earned this month',
+                    'Earned in ${DateFormat('MMMM yyyy').format(selectedMonth)}',
                     style: TextStyle(
                       fontSize: 13,
                       color: textSecondary.withValues(alpha: 0.8),
@@ -1670,24 +1753,15 @@ class _DashboardPageState extends State<DashboardPage>
             const SizedBox(height: 20),
             // Progress towards Previous Month
             _buildProgressBar(
-              label: 'vs Previous Month',
+              label: previousMonth != null
+                  ? 'vs ${DateFormat('MMM').format(previousMonth)}'
+                  : 'vs Previous Month',
               current: currentAmount,
               goal: previousMonthAmount,
               progress: previousProgress,
               remaining: previousRemaining,
               color: primaryColor,
               icon: Icons.calendar_month_rounded,
-            ),
-            const SizedBox(height: 16),
-            // Progress towards Target
-            _buildProgressBar(
-              label: 'vs Target',
-              current: currentAmount,
-              goal: targetAmount,
-              progress: targetProgress,
-              remaining: targetRemaining,
-              color: successColor,
-              icon: Icons.flag_rounded,
             ),
           ],
         ),
