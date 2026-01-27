@@ -612,11 +612,11 @@ class _DashboardPageState extends State<DashboardPage>
                     ],
                   ),
                   const SizedBox(height: 12),
-                  AnimatedBuilder(
-                    animation: _heroCardAnimation,
-                    builder: (context, child) {
-                      final animatedAmount =
-                          totalReceivedAmount * _heroCardAnimation.value;
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.0, end: totalReceivedAmount),
+                    duration: const Duration(milliseconds: 800),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, animatedAmount, child) {
                       return Text(
                         currencyFormat.format(animatedAmount),
                         style: const TextStyle(
@@ -795,12 +795,11 @@ class _DashboardPageState extends State<DashboardPage>
               ],
             ),
             const SizedBox(height: 10),
-            AnimatedBuilder(
-              animation: _monthlySummaryAnimation,
-              builder: (context, child) {
-                final animatedAmount =
-                    selectedSummary.totalReceived *
-                    _monthlySummaryAnimation.value;
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: selectedSummary.totalReceived),
+              duration: const Duration(milliseconds: 800),
+              curve: Curves.easeOutCubic,
+              builder: (context, animatedAmount, child) {
                 return Text(
                   currencyFormat.format(animatedAmount),
                   style: const TextStyle(
@@ -1224,11 +1223,11 @@ class _DashboardPageState extends State<DashboardPage>
                     ],
                   ),
                   const SizedBox(height: 12),
-                  AnimatedBuilder(
-                    animation: _targetCardAnimation,
-                    builder: (context, child) {
-                      final animatedTarget =
-                          target * _targetCardAnimation.value;
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.0, end: target),
+                    duration: const Duration(milliseconds: 800),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, animatedTarget, child) {
                       return Text(
                         currencyFormat.format(animatedTarget),
                         style: const TextStyle(
@@ -1676,11 +1675,11 @@ class _DashboardPageState extends State<DashboardPage>
             Center(
               child: Column(
                 children: [
-                  AnimatedBuilder(
-                    animation: _progressChartAnimation,
-                    builder: (context, child) {
-                      final animatedAmount =
-                          currentAmount * _progressChartAnimation.value;
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.0, end: currentAmount),
+                    duration: const Duration(milliseconds: 800),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, animatedAmount, child) {
                       return Text(
                         currencyFormat.format(animatedAmount),
                         style: const TextStyle(
@@ -1773,11 +1772,11 @@ class _DashboardPageState extends State<DashboardPage>
                     : color.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: AnimatedBuilder(
-                animation: _progressChartAnimation,
-                builder: (context, child) {
-                  final animatedProgress =
-                      displayProgress * _progressChartAnimation.value;
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: displayProgress),
+                duration: const Duration(milliseconds: 800),
+                curve: Curves.easeOutCubic,
+                builder: (context, animatedProgress, child) {
                   return Text(
                     '${animatedProgress.toStringAsFixed(1)}%',
                     style: TextStyle(
@@ -1802,13 +1801,16 @@ class _DashboardPageState extends State<DashboardPage>
                 borderRadius: BorderRadius.circular(5),
               ),
             ),
-            AnimatedBuilder(
-              animation: _progressChartAnimation,
-              builder: (context, child) {
-                final animatedWidth =
-                    (displayProgress / 100) * _progressChartAnimation.value;
+            TweenAnimationBuilder<double>(
+              tween: Tween(
+                begin: 0.0,
+                end: (displayProgress / 100).clamp(0.0, 1.0),
+              ),
+              duration: const Duration(milliseconds: 800),
+              curve: Curves.easeOutCubic,
+              builder: (context, animatedWidth, child) {
                 return FractionallySizedBox(
-                  widthFactor: animatedWidth.clamp(0.0, 1.0),
+                  widthFactor: animatedWidth,
                   child: Container(
                     height: 10,
                     decoration: BoxDecoration(
@@ -1818,9 +1820,7 @@ class _DashboardPageState extends State<DashboardPage>
                       borderRadius: BorderRadius.circular(5),
                       boxShadow: [
                         BoxShadow(
-                          color: color.withValues(
-                            alpha: 0.4 * _progressChartAnimation.value,
-                          ),
+                          color: color.withValues(alpha: 0.4 * animatedWidth),
                           blurRadius: 6,
                           offset: const Offset(0, 2),
                         ),
@@ -2001,13 +2001,13 @@ class _DashboardPageState extends State<DashboardPage>
                       const SizedBox(height: 12),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: AnimatedBuilder(
-                          animation: _topSendersAnimation,
-                          builder: (context, child) {
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0.0, end: percentage / 100),
+                          duration: const Duration(milliseconds: 800),
+                          curve: Curves.easeOutCubic,
+                          builder: (context, animatedValue, child) {
                             return LinearProgressIndicator(
-                              value:
-                                  (percentage / 100) *
-                                  _topSendersAnimation.value,
+                              value: animatedValue,
                               minHeight: 8,
                               backgroundColor: textSecondary.withValues(
                                 alpha: 0.2,
@@ -2198,7 +2198,8 @@ class _ScrollAnimatedComponent extends StatefulWidget {
   });
 
   @override
-  State<_ScrollAnimatedComponent> createState() => _ScrollAnimatedComponentState();
+  State<_ScrollAnimatedComponent> createState() =>
+      _ScrollAnimatedComponentState();
 }
 
 class _ScrollAnimatedComponentState extends State<_ScrollAnimatedComponent>
@@ -2219,10 +2220,10 @@ class _ScrollAnimatedComponentState extends State<_ScrollAnimatedComponent>
       parent: _controller,
       curve: Curves.easeOutCubic,
     );
-    
+
     // Listen to scroll changes
     widget.scrollController.addListener(_checkVisibility);
-    
+
     // Check visibility after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkVisibility();
@@ -2238,18 +2239,19 @@ class _ScrollAnimatedComponentState extends State<_ScrollAnimatedComponent>
 
   void _checkVisibility() {
     if (_hasAnimated || !mounted) return;
-    
+
     final RenderObject? renderObject = _key.currentContext?.findRenderObject();
     if (renderObject == null || renderObject is! RenderBox) return;
-    
+
     // Get the widget's position on screen
     final position = renderObject.localToGlobal(Offset.zero);
     final screenHeight = MediaQuery.of(context).size.height;
-    
+
     // Check if the widget is visible (with buffer for smoother animation trigger)
-    final bool isVisible = position.dy < screenHeight + 50 && 
+    final bool isVisible =
+        position.dy < screenHeight + 50 &&
         position.dy + renderObject.size.height > -50;
-    
+
     if (isVisible) {
       _hasAnimated = true;
       Future.delayed(widget.delay, () {
