@@ -962,13 +962,15 @@ class _DashboardPageState extends State<DashboardPage>
                   value,
                   style: const TextStyle(
                     color: textPrimary,
-                fontSize: 19,
-                fontWeight: FontWeight.bold,
-                letterSpacing: -0.5,
+                    fontSize: 19,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: -0.5,
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1105,19 +1107,19 @@ class _DashboardPageState extends State<DashboardPage>
                               letterSpacing: -0.5,
                             ),
                           ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Based on your growth trend',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                          SizedBox(height: 4),
+                          Text(
+                            'Based on your growth trend',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                        ],
+                      ),
+                    ],
+                  ),
                 const SizedBox(height: 24),
                 Text(
                   currencyFormat.format(target),
