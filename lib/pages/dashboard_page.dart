@@ -133,6 +133,53 @@ class _DashboardPageState extends State<DashboardPage>
     };
   }
 
+  /// Gets current month progress compared to previous month and target
+  Map<String, dynamic> get currentMonthProgress {
+    final now = DateTime.now();
+    final currentMonth = DateTime(now.year, now.month);
+
+    // Find current month data
+    final currentMonthData = _monthlySummaries.firstWhere(
+      (s) =>
+          s.month.year == currentMonth.year &&
+          s.month.month == currentMonth.month,
+      orElse: () => MonthlyTransactionSummary(
+        month: currentMonth,
+        totalReceived: 0,
+        totalSent: 0,
+        transactionCount: 0,
+      ),
+    );
+
+    final target = nextMonthTarget;
+    final targetAmount = target['target'] as double;
+    final previousMonthAmount = target['lastMonth'] as double;
+
+    final currentAmount = currentMonthData.totalReceived;
+
+    // Progress towards previous month
+    final previousProgress = previousMonthAmount > 0
+        ? (currentAmount / previousMonthAmount * 100).clamp(0.0, 200.0)
+        : 0.0;
+    final previousRemaining = previousMonthAmount - currentAmount;
+
+    // Progress towards target
+    final targetProgress = targetAmount > 0
+        ? (currentAmount / targetAmount * 100).clamp(0.0, 200.0)
+        : 0.0;
+    final targetRemaining = targetAmount - currentAmount;
+
+    return {
+      'currentAmount': currentAmount,
+      'previousMonthAmount': previousMonthAmount,
+      'previousProgress': previousProgress,
+      'previousRemaining': previousRemaining,
+      'targetAmount': targetAmount,
+      'targetProgress': targetProgress,
+      'targetRemaining': targetRemaining,
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -244,6 +291,8 @@ class _DashboardPageState extends State<DashboardPage>
                               _buildNextMonthTargetCard(),
                               const SizedBox(height: 12),
                               _buildTransactionChart(),
+                              const SizedBox(height: 12),
+                              _buildMonthProgressChart(),
                               const SizedBox(height: 12),
                               _buildTopSendersCard(),
                               const SizedBox(height: 12),
@@ -1299,6 +1348,222 @@ class _DashboardPageState extends State<DashboardPage>
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildMonthProgressChart() {
+    final progress = currentMonthProgress;
+    final currentAmount = progress['currentAmount'] as double;
+    final previousMonthAmount = progress['previousMonthAmount'] as double;
+    final targetAmount = progress['targetAmount'] as double;
+
+    if (previousMonthAmount == 0 && targetAmount == 0) {
+      return const SizedBox.shrink();
+    }
+
+    final previousProgress = progress['previousProgress'] as double;
+    final previousRemaining = progress['previousRemaining'] as double;
+    final targetProgress = progress['targetProgress'] as double;
+    final targetRemaining = progress['targetRemaining'] as double;
+
+    return _buildGlassCard(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        accentPurple.withOpacity(0.3),
+                        accentPurple.withOpacity(0.1),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.trending_up_rounded,
+                    color: accentPurple,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'Monthly Progress',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: textPrimary,
+                    fontSize: 16,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Current amount display
+            Center(
+              child: Column(
+                children: [
+                  Text(
+                    currencyFormat.format(currentAmount),
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: textPrimary,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Earned this month',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: textSecondary.withOpacity(0.8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Progress towards Previous Month
+            _buildProgressBar(
+              label: 'vs Previous Month',
+              current: currentAmount,
+              goal: previousMonthAmount,
+              progress: previousProgress,
+              remaining: previousRemaining,
+              color: primaryColor,
+              icon: Icons.calendar_month_rounded,
+            ),
+            const SizedBox(height: 16),
+            // Progress towards Target
+            _buildProgressBar(
+              label: 'vs Target',
+              current: currentAmount,
+              goal: targetAmount,
+              progress: targetProgress,
+              remaining: targetRemaining,
+              color: successColor,
+              icon: Icons.flag_rounded,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProgressBar({
+    required String label,
+    required double current,
+    required double goal,
+    required double progress,
+    required double remaining,
+    required Color color,
+    required IconData icon,
+  }) {
+    final isAchieved = remaining <= 0;
+    final displayProgress = progress.clamp(0.0, 100.0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: textSecondary,
+                  ),
+                ),
+              ],
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: isAchieved
+                    ? successColor.withOpacity(0.2)
+                    : color.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '${displayProgress.toStringAsFixed(1)}%',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: isAchieved ? successColor : color,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Progress bar
+        Stack(
+          children: [
+            Container(
+              height: 10,
+              decoration: BoxDecoration(
+                color: cardBorder.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(5),
+              ),
+            ),
+            FractionallySizedBox(
+              widthFactor: displayProgress / 100,
+              child: Container(
+                height: 10,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [color, color.withOpacity(0.7)],
+                  ),
+                  borderRadius: BorderRadius.circular(5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withOpacity(0.4),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Goal and remaining
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Goal: ${currencyFormat.format(goal)}',
+              style: TextStyle(
+                fontSize: 11,
+                color: textSecondary.withOpacity(0.7),
+              ),
+            ),
+            Text(
+              isAchieved
+                  ? '✓ Exceeded by ${currencyFormat.format(-remaining)}'
+                  : '${currencyFormat.format(remaining)} left',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: isAchieved ? successColor : color,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
