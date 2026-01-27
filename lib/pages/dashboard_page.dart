@@ -192,11 +192,22 @@ class _DashboardPageState extends State<DashboardPage>
         : 0.0;
     final previousRemaining = previousMonthAmount - currentAmount;
 
+    // Calculate target (previous month + growth rate)
+    final target = nextMonthTarget;
+    final targetAmount = target['target'] as double;
+    final targetProgress = targetAmount > 0
+        ? (currentAmount / targetAmount * 100).clamp(0.0, 200.0)
+        : 0.0;
+    final targetRemaining = targetAmount - currentAmount;
+
     return {
       'currentAmount': currentAmount,
       'previousMonthAmount': previousMonthAmount,
       'previousProgress': previousProgress,
       'previousRemaining': previousRemaining,
+      'targetAmount': targetAmount,
+      'targetProgress': targetProgress,
+      'targetRemaining': targetRemaining,
       'selectedMonth': selectedMonthData.month,
       'previousMonth': previousMonthDate,
     };
@@ -267,7 +278,7 @@ class _DashboardPageState extends State<DashboardPage>
     );
 
     _processTransactions();
-    
+
     // Delay animation start until after the first frame is rendered
     // This ensures AnimatedBuilder widgets are mounted and listening
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1618,11 +1629,14 @@ class _DashboardPageState extends State<DashboardPage>
     final progress = getMonthProgress(_selectedProgressMonthIndex);
     final currentAmount = progress['currentAmount'] as double;
     final previousMonthAmount = progress['previousMonthAmount'] as double;
+    final targetAmount = progress['targetAmount'] as double;
     final selectedMonth = progress['selectedMonth'] as DateTime;
     final previousMonth = progress['previousMonth'] as DateTime?;
 
     final previousProgress = progress['previousProgress'] as double;
     final previousRemaining = progress['previousRemaining'] as double;
+    final targetProgress = progress['targetProgress'] as double;
+    final targetRemaining = progress['targetRemaining'] as double;
 
     return _buildGlassCard(
       child: Padding(
@@ -1762,6 +1776,17 @@ class _DashboardPageState extends State<DashboardPage>
               remaining: previousRemaining,
               color: primaryColor,
               icon: Icons.calendar_month_rounded,
+            ),
+            const SizedBox(height: 16),
+            // Progress towards Target
+            _buildProgressBar(
+              label: 'vs Target',
+              current: currentAmount,
+              goal: targetAmount,
+              progress: targetProgress,
+              remaining: targetRemaining,
+              color: successColor,
+              icon: Icons.flag_rounded,
             ),
           ],
         ),
