@@ -1120,67 +1120,32 @@ class _DashboardPageState extends State<DashboardPage>
                       ),
                     ],
                   ),
-                const SizedBox(height: 24),
-                Text(
-                  currencyFormat.format(target),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 42,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: -1.5,
+                  const SizedBox(height: 24),
+                  Text(
+                    currencyFormat.format(target),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 42,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -1.5,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Growth Rate',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '+${(growthRate * 100).toStringAsFixed(1)}%',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        width: 1,
-                        height: 40,
-                        color: Colors.white.withOpacity(0.3),
-                      ),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 16),
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                lastMonthDate != null
-                                    ? DateFormat(
-                                        'MMM yyyy',
-                                      ).format(lastMonthDate)
-                                    : 'Last Month',
-                                style: const TextStyle(
+                              const Text(
+                                'Growth Rate',
+                                style: TextStyle(
                                   color: Colors.white70,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
@@ -1188,24 +1153,60 @@ class _DashboardPageState extends State<DashboardPage>
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                currencyFormat.format(lastMonth),
+                                '+${(growthRate * 100).toStringAsFixed(1)}%',
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 18,
+                                  fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ),
-                    ],
+                        Container(
+                          width: 1,
+                          height: 40,
+                          color: Colors.white.withOpacity(0.3),
+                        ),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  lastMonthDate != null
+                                      ? DateFormat(
+                                          'MMM yyyy',
+                                        ).format(lastMonthDate)
+                                      : 'Last Month',
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  currencyFormat.format(lastMonth),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
