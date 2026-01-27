@@ -592,6 +592,36 @@ class _DashboardPageState extends State<DashboardPage>
     );
   }
 
+  /// Glassmorphism card with blur and subtle border
+  Widget _buildGlassCard({required Widget child, EdgeInsets? margin}) {
+    return Container(
+      margin: margin ?? const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: cardColor.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: cardBorder.withOpacity(0.5),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
+            spreadRadius: -5,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: child,
+        ),
+      ),
+    );
+  }
+
   Widget _buildMonthlySummaryCard() {
     if (_monthlySummaries.isEmpty) return const SizedBox.shrink();
 
@@ -611,19 +641,7 @@ class _DashboardPageState extends State<DashboardPage>
               100)
         : 0.0;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+    return _buildGlassCard(
       child: Padding(
         padding: const EdgeInsets.all(28),
         child: Column(
@@ -638,7 +656,7 @@ class _DashboardPageState extends State<DashboardPage>
                     Text(
                       'Monthly Summary',
                       style: TextStyle(
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w800,
                         color: textPrimary,
                         fontSize: 22,
                         letterSpacing: -0.5,
@@ -815,6 +833,14 @@ class _DashboardPageState extends State<DashboardPage>
         ? 0.0
         : thisMonthTotal / thisMonthTransactions.length;
 
+    // Epic gradient pairs for metric cards
+    const metricGradients = [
+      [Color(0xFF6366F1), Color(0xFF8B5CF6)], // Indigo to Purple
+      [Color(0xFFEC4899), Color(0xFFF472B6)], // Pink
+      [Color(0xFF14B8A6), Color(0xFF5EEAD4)], // Teal
+      [Color(0xFFF59E0B), Color(0xFFFBBF24)], // Amber
+    ];
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -826,21 +852,21 @@ class _DashboardPageState extends State<DashboardPage>
                   'Average Transaction',
                   currencyFormat.format(averageReceivedAmount),
                   Icons.analytics_outlined,
-                  const [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                  metricGradients[0],
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
               Expanded(
                 child: _buildMetricCard(
                   'This Month Avg',
                   currencyFormat.format(thisMonthAvg),
                   Icons.calendar_today_outlined,
-                  const [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
+                  metricGradients[1],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
@@ -848,16 +874,16 @@ class _DashboardPageState extends State<DashboardPage>
                   'Highest Amount',
                   currencyFormat.format(highestTransaction),
                   Icons.arrow_upward_rounded,
-                  const [Color(0xFF10B981), Color(0xFF059669)],
+                  metricGradients[2],
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
               Expanded(
                 child: _buildMetricCard(
                   'Total Fees',
                   currencyFormat.format(totalFees),
                   Icons.money_off_outlined,
-                  const [Color(0xFFF59E0B), Color(0xFFD97706)],
+                  metricGradients[3],
                 ),
               ),
             ],
@@ -876,52 +902,66 @@ class _DashboardPageState extends State<DashboardPage>
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(22),
+        color: cardColor.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: cardBorder.withOpacity(0.4),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+            spreadRadius: -5,
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: gradientColors),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: gradientColors.first.withOpacity(0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: gradientColors,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: gradientColors.first.withOpacity(0.4),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                      spreadRadius: -2,
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Icon(icon, color: Colors.white, size: 22),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            label,
-            style: const TextStyle(
-              color: textSecondary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.3,
-            ),
-          ),
-          const SizedBox(height: 8),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              style: const TextStyle(
-                color: textPrimary,
+                child: Icon(icon, color: Colors.white, size: 22),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const SizedBox(height: 6),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  style: const TextStyle(
+                    color: textPrimary,
                 fontSize: 19,
                 fontWeight: FontWeight.bold,
                 letterSpacing: -0.5,
@@ -946,77 +986,125 @@ class _DashboardPageState extends State<DashboardPage>
       margin: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF059669), Color(0xFF10B981)],
+          colors: [Color(0xFF0D9488), Color(0xFF14B8A6), Color(0xFF5EEAD4)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          stops: [0.0, 0.5, 1.0],
         ),
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.2),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
-            color: successColor.withOpacity(0.4),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+            color: successColor.withOpacity(0.5),
+            blurRadius: 40,
+            offset: const Offset(0, 20),
+            spreadRadius: -5,
+          ),
+          BoxShadow(
+            color: const Color(0xFF5EEAD4).withOpacity(0.2),
+            blurRadius: 60,
+            offset: const Offset(0, 10),
+            spreadRadius: -10,
           ),
         ],
       ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -40,
-            right: -40,
-            child: Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.1),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(32),
+        child: Stack(
+          children: [
+            // Flowing light effects
+            Positioned(
+              top: -60,
+              right: -50,
+              child: Container(
+                width: 180,
+                height: 180,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      Colors.white.withOpacity(0.2),
+                      Colors.white.withOpacity(0.05),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
-          Positioned(
-            bottom: -20,
-            left: -20,
-            child: Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.05),
+            Positioned(
+              bottom: -40,
+              left: -30,
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      Colors.white.withOpacity(0.15),
+                      Colors.white.withOpacity(0.03),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(
-                        Icons.flag_rounded,
-                        color: Colors.white,
-                        size: 26,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Next Month Target',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: -0.5,
+            // Gradient overlay
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withOpacity(0.1),
+                      Colors.transparent,
+                      Colors.black.withOpacity(0.1),
+                    ],
+                    stops: const [0.0, 0.3, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                            width: 1,
                           ),
                         ),
+                        child: const Icon(
+                          Icons.flag_rounded,
+                          color: Colors.white,
+                          size: 26,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Next Month Target',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
                         SizedBox(height: 4),
                         Text(
                           'Based on your growth trend',
