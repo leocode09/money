@@ -27,16 +27,16 @@ class _DashboardPageState extends State<DashboardPage>
     decimalDigits: 0,
   );
 
-  // Modern color palette
-  static const primaryColor = Color(0xFF6366F1);
-  static const primaryDark = Color(0xFF4F46E5);
-  static const accentColor = Color(0xFF8B5CF6);
-  static const successColor = Color(0xFF10B981);
-  static const dangerColor = Color(0xFFEF4444);
-  static const bgColor = Color(0xFFF8FAFC);
-  static const cardColor = Colors.white;
-  static const textPrimary = Color(0xFF1E293B);
-  static const textSecondary = Color(0xFF64748B);
+  // Ripple-inspired dark color palette
+  static const primaryColor = Color(0xFFC77B58);      // Warm coral/orange
+  static const primaryDark = Color(0xFFB86A47);       // Darker coral
+  static const accentColor = Color(0xFFD4956A);       // Warm sand
+  static const successColor = Color(0xFF4ECDC4);      // Warm teal
+  static const dangerColor = Color(0xFFE57373);       // Soft coral red
+  static const bgColor = Color(0xFF1A1018);           // Deep dark purple-brown
+  static const cardColor = Color(0xFF2D1B2E);         // Dark purple card
+  static const textPrimary = Color(0xFFF5EBE0);       // Cream white
+  static const textSecondary = Color(0xFFB8A99A);     // Muted cream
 
   double get totalReceivedAmount => _transactions
       .where((t) => t.isReceived)
@@ -637,7 +637,7 @@ class _DashboardPageState extends State<DashboardPage>
                   'Average Transaction',
                   currencyFormat.format(averageReceivedAmount),
                   Icons.analytics_outlined,
-                  const [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                  const [Color(0xFFC77B58), Color(0xFFB86A47)],
                 ),
               ),
               const SizedBox(width: 16),
@@ -646,7 +646,7 @@ class _DashboardPageState extends State<DashboardPage>
                   'This Month Avg',
                   currencyFormat.format(thisMonthAvg),
                   Icons.calendar_today_outlined,
-                  const [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
+                  const [Color(0xFFD4956A), Color(0xFFC77B58)],
                 ),
               ),
             ],
@@ -659,7 +659,7 @@ class _DashboardPageState extends State<DashboardPage>
                   'Highest Amount',
                   currencyFormat.format(highestTransaction),
                   Icons.arrow_upward_rounded,
-                  const [Color(0xFF10B981), Color(0xFF059669)],
+                  const [Color(0xFF4ECDC4), Color(0xFF3DBDB4)],
                 ),
               ),
               const SizedBox(width: 16),
@@ -668,7 +668,7 @@ class _DashboardPageState extends State<DashboardPage>
                   'Total Fees',
                   currencyFormat.format(totalFees),
                   Icons.money_off_outlined,
-                  const [Color(0xFFF59E0B), Color(0xFFD97706)],
+                  const [Color(0xFFE57373), Color(0xFFD45F5F)],
                 ),
               ),
             ],
@@ -1022,13 +1022,13 @@ class _DashboardPageState extends State<DashboardPage>
                     drawVerticalLine: true,
                     horizontalInterval: null,
                     verticalInterval: 1,
-                    getDrawingHorizontalLine: (value) => const FlLine(
-                      color: Color(0xFFF1F5F9),
-                      strokeWidth: 1.5,
+                    getDrawingHorizontalLine: (value) => FlLine(
+                      color: const Color(0xFFB8A99A).withOpacity(0.15),
+                      strokeWidth: 1,
                     ),
-                    getDrawingVerticalLine: (value) => const FlLine(
-                      color: Color(0xFFF1F5F9),
-                      strokeWidth: 1.5,
+                    getDrawingVerticalLine: (value) => FlLine(
+                      color: const Color(0xFFB8A99A).withOpacity(0.15),
+                      strokeWidth: 1,
                     ),
                   ),
                   titlesData: FlTitlesData(

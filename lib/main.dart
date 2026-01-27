@@ -16,12 +16,32 @@ class MyApp extends StatelessWidget {
       title: 'M-Money Dashboard',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1B5E20), // Deep green color
-          brightness: Brightness.light,
+          seedColor: const Color(0xFFC77B58), // Ripple coral/orange
+          brightness: Brightness.dark,
+        ).copyWith(
+          surface: const Color(0xFF1A1018),
+          primary: const Color(0xFFC77B58),
+          secondary: const Color(0xFFD4956A),
+          onSurface: const Color(0xFFF5EBE0),
+          onPrimary: const Color(0xFF1A1018),
         ),
+        scaffoldBackgroundColor: const Color(0xFF1A1018),
         useMaterial3: true,
         appBarTheme: const AppBarTheme(
           centerTitle: true,
+          backgroundColor: Color(0xFF1A1018),
+          foregroundColor: Color(0xFFF5EBE0),
+        ),
+        textTheme: const TextTheme(
+          bodyLarge: TextStyle(color: Color(0xFFF5EBE0)),
+          bodyMedium: TextStyle(color: Color(0xFFF5EBE0)),
+          bodySmall: TextStyle(color: Color(0xFFB8A99A)),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFC77B58),
+            foregroundColor: const Color(0xFF1A1018),
+          ),
         ),
       ),
       home: const MyHomePage(),
