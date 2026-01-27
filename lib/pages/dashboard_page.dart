@@ -22,17 +22,10 @@ class _DashboardPageState extends State<DashboardPage>
   int _selectedProgressMonthIndex = 0;
   late AnimationController _animationController;
   late AnimationController _staggerController;
+  late ScrollController _scrollController;
 
   // Individual animations for each component
   late Animation<double> _bgAnimation;
-  late Animation<double> _progressChartAnimation;
-  late Animation<double> _transactionChartAnimation;
-  late Animation<double> _receiptsListAnimation;
-  late Animation<double> _heroCardAnimation;
-  late Animation<double> _monthlySummaryAnimation;
-  late Animation<double> _metricCardsAnimation;
-  late Animation<double> _targetCardAnimation;
-  late Animation<double> _topSendersAnimation;
 
   final currencyFormat = NumberFormat.currency(
     symbol: 'RWF ',
@@ -221,6 +214,7 @@ class _DashboardPageState extends State<DashboardPage>
   @override
   void initState() {
     super.initState();
+    _scrollController = ScrollController();
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -237,46 +231,6 @@ class _DashboardPageState extends State<DashboardPage>
       curve: const Interval(0.0, 0.3, curve: Curves.easeOutCubic),
     );
 
-    _progressChartAnimation = CurvedAnimation(
-      parent: _staggerController,
-      curve: const Interval(0.05, 0.35, curve: Curves.easeOutCubic),
-    );
-
-    _transactionChartAnimation = CurvedAnimation(
-      parent: _staggerController,
-      curve: const Interval(0.1, 0.4, curve: Curves.easeOutCubic),
-    );
-
-    _receiptsListAnimation = CurvedAnimation(
-      parent: _staggerController,
-      curve: const Interval(0.15, 0.45, curve: Curves.easeOutCubic),
-    );
-
-    _heroCardAnimation = CurvedAnimation(
-      parent: _staggerController,
-      curve: const Interval(0.2, 0.5, curve: Curves.easeOutCubic),
-    );
-
-    _monthlySummaryAnimation = CurvedAnimation(
-      parent: _staggerController,
-      curve: const Interval(0.25, 0.55, curve: Curves.easeOutCubic),
-    );
-
-    _metricCardsAnimation = CurvedAnimation(
-      parent: _staggerController,
-      curve: const Interval(0.3, 0.6, curve: Curves.easeOutCubic),
-    );
-
-    _targetCardAnimation = CurvedAnimation(
-      parent: _staggerController,
-      curve: const Interval(0.35, 0.65, curve: Curves.easeOutCubic),
-    );
-
-    _topSendersAnimation = CurvedAnimation(
-      parent: _staggerController,
-      curve: const Interval(0.4, 0.7, curve: Curves.easeOutCubic),
-    );
-
     _processTransactions();
 
     // Delay animation start until after the first frame is rendered
@@ -290,6 +244,7 @@ class _DashboardPageState extends State<DashboardPage>
   void dispose() {
     _animationController.dispose();
     _staggerController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -363,49 +318,58 @@ class _DashboardPageState extends State<DashboardPage>
                 ),
                 // Main content
                 CustomScrollView(
+                  controller: _scrollController,
                   slivers: [
                     _buildAppBar(),
                     SliverToBoxAdapter(
                       child: Column(
                         children: [
                           const SizedBox(height: 4),
-                          _buildAnimatedComponent(
-                            animation: _progressChartAnimation,
+                          _ScrollAnimatedComponent(
+                            scrollController: _scrollController,
+                            delay: const Duration(milliseconds: 0),
                             child: _buildMonthProgressChart(),
                           ),
                           const SizedBox(height: 12),
-                          _buildAnimatedComponent(
-                            animation: _transactionChartAnimation,
+                          _ScrollAnimatedComponent(
+                            scrollController: _scrollController,
+                            delay: const Duration(milliseconds: 50),
                             child: _buildTransactionChart(),
                           ),
                           const SizedBox(height: 12),
-                          _buildAnimatedComponent(
-                            animation: _receiptsListAnimation,
+                          _ScrollAnimatedComponent(
+                            scrollController: _scrollController,
+                            delay: const Duration(milliseconds: 100),
                             child: _buildMonthlyReceiptsList(),
                           ),
                           const SizedBox(height: 12),
-                          _buildAnimatedComponent(
-                            animation: _heroCardAnimation,
+                          _ScrollAnimatedComponent(
+                            scrollController: _scrollController,
+                            delay: const Duration(milliseconds: 150),
                             child: _buildHeroCard(),
                           ),
                           const SizedBox(height: 12),
-                          _buildAnimatedComponent(
-                            animation: _monthlySummaryAnimation,
+                          _ScrollAnimatedComponent(
+                            scrollController: _scrollController,
+                            delay: const Duration(milliseconds: 200),
                             child: _buildMonthlySummaryCard(),
                           ),
                           const SizedBox(height: 12),
-                          _buildAnimatedComponent(
-                            animation: _metricCardsAnimation,
+                          _ScrollAnimatedComponent(
+                            scrollController: _scrollController,
+                            delay: const Duration(milliseconds: 250),
                             child: _buildMetricCards(),
                           ),
                           const SizedBox(height: 12),
-                          _buildAnimatedComponent(
-                            animation: _targetCardAnimation,
+                          _ScrollAnimatedComponent(
+                            scrollController: _scrollController,
+                            delay: const Duration(milliseconds: 300),
                             child: _buildNextMonthTargetCard(),
                           ),
                           const SizedBox(height: 12),
-                          _buildAnimatedComponent(
-                            animation: _topSendersAnimation,
+                          _ScrollAnimatedComponent(
+                            scrollController: _scrollController,
+                            delay: const Duration(milliseconds: 350),
                             child: _buildTopSendersCard(),
                           ),
                           const SizedBox(height: 24),
@@ -416,31 +380,6 @@ class _DashboardPageState extends State<DashboardPage>
                 ),
               ],
             ),
-    );
-  }
-
-  /// Builds an animated component with fade, slide, and scale effects
-  Widget _buildAnimatedComponent({
-    required Animation<double> animation,
-    required Widget child,
-    double slideOffset = 30.0,
-  }) {
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, slideOffset * (1 - animation.value)),
-          child: Opacity(
-            opacity: animation.value.clamp(0.0, 1.0),
-            child: Transform.scale(
-              scale: 0.95 + (0.05 * animation.value),
-              alignment: Alignment.center,
-              child: child,
-            ),
-          ),
-        );
-      },
-      child: child,
     );
   }
 
@@ -2240,6 +2179,106 @@ class _DashboardPageState extends State<DashboardPage>
           ),
         ],
       ),
+    );
+  }
+}
+
+/// A widget that animates when it scrolls into the viewport
+class _ScrollAnimatedComponent extends StatefulWidget {
+  final Widget child;
+  final ScrollController scrollController;
+  final Duration delay;
+  final double slideOffset;
+
+  const _ScrollAnimatedComponent({
+    required this.child,
+    required this.scrollController,
+    this.delay = Duration.zero,
+    this.slideOffset = 30.0,
+  });
+
+  @override
+  State<_ScrollAnimatedComponent> createState() => _ScrollAnimatedComponentState();
+}
+
+class _ScrollAnimatedComponentState extends State<_ScrollAnimatedComponent>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+  bool _hasAnimated = false;
+  final GlobalKey _key = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+    );
+    
+    // Listen to scroll changes
+    widget.scrollController.addListener(_checkVisibility);
+    
+    // Check visibility after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkVisibility();
+    });
+  }
+
+  @override
+  void dispose() {
+    widget.scrollController.removeListener(_checkVisibility);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _checkVisibility() {
+    if (_hasAnimated || !mounted) return;
+    
+    final RenderObject? renderObject = _key.currentContext?.findRenderObject();
+    if (renderObject == null || renderObject is! RenderBox) return;
+    
+    // Get the widget's position on screen
+    final position = renderObject.localToGlobal(Offset.zero);
+    final screenHeight = MediaQuery.of(context).size.height;
+    
+    // Check if the widget is visible (with buffer for smoother animation trigger)
+    final bool isVisible = position.dy < screenHeight + 50 && 
+        position.dy + renderObject.size.height > -50;
+    
+    if (isVisible) {
+      _hasAnimated = true;
+      Future.delayed(widget.delay, () {
+        if (mounted) {
+          _controller.forward();
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      key: _key,
+      animation: _animation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, widget.slideOffset * (1 - _animation.value)),
+          child: Opacity(
+            opacity: _animation.value.clamp(0.0, 1.0),
+            child: Transform.scale(
+              scale: 0.95 + (0.05 * _animation.value),
+              alignment: Alignment.center,
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: widget.child,
     );
   }
 }
