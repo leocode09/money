@@ -234,21 +234,21 @@ class _DashboardPageState extends State<DashboardPage>
                           ).animate(_slideAnimation),
                           child: Column(
                             children: [
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 4),
                               _buildHeroCard(),
-                              const SizedBox(height: 24),
+                              const SizedBox(height: 12),
                               _buildMonthlySummaryCard(),
-                              const SizedBox(height: 24),
+                              const SizedBox(height: 12),
                               _buildMetricCards(),
-                              const SizedBox(height: 24),
+                              const SizedBox(height: 12),
                               _buildNextMonthTargetCard(),
-                              const SizedBox(height: 24),
+                              const SizedBox(height: 12),
                               _buildTransactionChart(),
-                              const SizedBox(height: 24),
+                              const SizedBox(height: 12),
                               _buildTopSendersCard(),
-                              const SizedBox(height: 24),
+                              const SizedBox(height: 12),
                               _buildMonthlyReceiptsList(),
-                              const SizedBox(height: 50),
+                              const SizedBox(height: 24),
                             ],
                           ),
                         ),
@@ -344,7 +344,7 @@ class _DashboardPageState extends State<DashboardPage>
 
   Widget _buildAppBar() {
     return SliverAppBar(
-      expandedHeight: 140,
+      expandedHeight: 80,
       floating: false,
       pinned: true,
       backgroundColor: Colors.transparent,
@@ -377,19 +377,19 @@ class _DashboardPageState extends State<DashboardPage>
             style: TextStyle(
               fontWeight: FontWeight.w800,
               color: Colors.white,
-              fontSize: 22,
-              letterSpacing: -0.5,
+              fontSize: 18,
+              letterSpacing: -0.3,
             ),
           ),
         ),
-        titlePadding: const EdgeInsets.only(left: 24, bottom: 16),
+        titlePadding: const EdgeInsets.only(left: 16, bottom: 12),
       ),
     );
   }
 
   Widget _buildHeroCard() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      margin: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [primaryColor, primaryDark, Color(0xFFB85A3A)],
@@ -397,156 +397,88 @@ class _DashboardPageState extends State<DashboardPage>
           end: Alignment.bottomRight,
           stops: [0.0, 0.6, 1.0],
         ),
-        borderRadius: BorderRadius.circular(32),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: primaryLight.withOpacity(0.3),
-          width: 1.5,
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: primaryColor.withOpacity(0.5),
-            blurRadius: 40,
-            offset: const Offset(0, 20),
-            spreadRadius: -5,
-          ),
-          BoxShadow(
-            color: primaryLight.withOpacity(0.2),
-            blurRadius: 60,
+            color: primaryColor.withOpacity(0.4),
+            blurRadius: 20,
             offset: const Offset(0, 10),
-            spreadRadius: -10,
+            spreadRadius: -5,
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(32),
+        borderRadius: BorderRadius.circular(20),
         child: Stack(
           children: [
             // Flowing light orbs
             Positioned(
-              top: -80,
-              right: -60,
+              top: -40,
+              right: -30,
               child: Container(
-                width: 200,
-                height: 200,
+                width: 100,
+                height: 100,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
                       Colors.white.withOpacity(0.2),
-                      Colors.white.withOpacity(0.05),
                       Colors.transparent,
                     ],
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: -50,
-              left: -40,
-              child: Container(
-                width: 150,
-                height: 150,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.white.withOpacity(0.15),
-                      Colors.white.withOpacity(0.03),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // Subtle noise/texture overlay
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.white.withOpacity(0.1),
-                      Colors.transparent,
-                      Colors.black.withOpacity(0.1),
-                    ],
-                    stops: const [0.0, 0.3, 1.0],
                   ),
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(32),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(14),
+                        padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.3),
-                            width: 1,
-                          ),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(
                           Icons.account_balance_wallet_rounded,
                           color: Colors.white,
-                          size: 28,
+                          size: 20,
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Total Received',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                          Text(
-                            'All time earnings',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.7),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Total Received',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 28),
-                  ShaderMask(
-                    shaderCallback: (bounds) => LinearGradient(
-                      colors: [
-                        Colors.white,
-                        Colors.white.withOpacity(0.9),
-                      ],
-                    ).createShader(bounds),
-                    child: Text(
-                      currencyFormat.format(totalReceivedAmount),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 52,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -2.5,
-                        height: 1.0,
-                      ),
+                  const SizedBox(height: 12),
+                  Text(
+                    currencyFormat.format(totalReceivedAmount),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -1.5,
+                      height: 1.0,
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
+                      horizontal: 10,
+                      vertical: 5,
                     ),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.15),
@@ -560,7 +492,7 @@ class _DashboardPageState extends State<DashboardPage>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(4),
+                          padding: const EdgeInsets.all(3),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.2),
                             shape: BoxShape.circle,
@@ -568,15 +500,15 @@ class _DashboardPageState extends State<DashboardPage>
                           child: const Icon(
                             Icons.trending_up,
                             color: Colors.white,
-                            size: 16,
+                            size: 12,
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 6),
                         Text(
                           '${_transactions.where((t) => t.isReceived).length} transactions',
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 15,
+                            fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -595,10 +527,10 @@ class _DashboardPageState extends State<DashboardPage>
   /// Glassmorphism card with blur and subtle border
   Widget _buildGlassCard({required Widget child, EdgeInsets? margin}) {
     return Container(
-      margin: margin ?? const EdgeInsets.symmetric(horizontal: 20),
+      margin: margin ?? const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: cardColor.withOpacity(0.7),
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: cardBorder.withOpacity(0.5),
           width: 1,
@@ -606,16 +538,16 @@ class _DashboardPageState extends State<DashboardPage>
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.2),
-            blurRadius: 30,
-            offset: const Offset(0, 10),
-            spreadRadius: -5,
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+            spreadRadius: -3,
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(16),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
           child: child,
         ),
       ),
@@ -643,36 +575,26 @@ class _DashboardPageState extends State<DashboardPage>
 
     return _buildGlassCard(
       child: Padding(
-        padding: const EdgeInsets.all(28),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Monthly Summary',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: textPrimary,
-                        fontSize: 22,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      'Detailed breakdown',
-                      style: TextStyle(color: textSecondary, fontSize: 14),
-                    ),
-                  ],
+                const Text(
+                  'Monthly Summary',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: textPrimary,
+                    fontSize: 16,
+                    letterSpacing: -0.3,
+                  ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 12,
+                    horizontal: 10,
+                    vertical: 6,
                   ),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -681,10 +603,10 @@ class _DashboardPageState extends State<DashboardPage>
                         primaryColor.withOpacity(0.15),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: primaryColor.withOpacity(0.3),
-                      width: 1.5,
+                      width: 1,
                     ),
                   ),
                   child: DropdownButton<int>(
@@ -694,14 +616,15 @@ class _DashboardPageState extends State<DashboardPage>
                     icon: const Icon(
                       Icons.keyboard_arrow_down,
                       color: primaryColor,
+                      size: 18,
                     ),
                     items: sortedSummaries.asMap().entries.map((entry) {
                       return DropdownMenuItem<int>(
                         value: entry.key,
                         child: Text(
-                          DateFormat('MMM yyyy').format(entry.value.month),
+                          DateFormat('MMM yy').format(entry.value.month),
                           style: const TextStyle(
-                            fontSize: 15,
+                            fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: primaryColor,
                           ),
@@ -719,29 +642,29 @@ class _DashboardPageState extends State<DashboardPage>
                 ),
               ],
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 10),
             Text(
               currencyFormat.format(selectedSummary.totalReceived),
               style: const TextStyle(
                 color: textPrimary,
-                fontSize: 42,
+                fontSize: 28,
                 fontWeight: FontWeight.bold,
-                letterSpacing: -1.5,
+                letterSpacing: -1,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 4),
             Text(
               '${selectedSummary.transactionCount} transaction${selectedSummary.transactionCount != 1 ? 's' : ''} this month',
               style: const TextStyle(
                 color: textSecondary,
-                fontSize: 16,
+                fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
             ),
             if (previousSummary != null) ...[
-              const SizedBox(height: 24),
+              const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: percentageChange >= 0
