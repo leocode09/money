@@ -1211,19 +1211,7 @@ class _DashboardPageState extends State<DashboardPage>
   Widget _buildTransactionChart() {
     if (_monthlySummaries.isEmpty) return const SizedBox.shrink();
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+    return _buildGlassCard(
       child: Padding(
         padding: const EdgeInsets.all(28),
         child: Column(
@@ -1238,7 +1226,7 @@ class _DashboardPageState extends State<DashboardPage>
                     Text(
                       'Income Trend',
                       style: TextStyle(
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w800,
                         color: textPrimary,
                         fontSize: 22,
                         letterSpacing: -0.5,
@@ -1464,35 +1452,39 @@ class _DashboardPageState extends State<DashboardPage>
         ? 1.0
         : topCounterparties.first.value;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+    return _buildGlassCard(
       child: Padding(
         padding: const EdgeInsets.all(28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.emoji_events_rounded, color: primaryColor, size: 28),
-                SizedBox(width: 12),
-                Column(
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [primaryColor, accentColor],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: primaryColor.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.emoji_events_rounded, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 14),
+                const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Top Senders',
                       style: TextStyle(
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w800,
                         color: textPrimary,
                         fontSize: 22,
                         letterSpacing: -0.5,
@@ -1622,35 +1614,39 @@ class _DashboardPageState extends State<DashboardPage>
       _monthlySummaries,
     )..sort((b, a) => a.month.compareTo(b.month));
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+    return _buildGlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.all(28),
+          Padding(
+            padding: const EdgeInsets.all(28),
             child: Row(
               children: [
-                Icon(Icons.receipt_long_rounded, color: primaryColor, size: 28),
-                SizedBox(width: 12),
-                Column(
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [accentPurple, Color(0xFFB794F6)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: accentPurple.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 14),
+                const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'All Monthly Receipts',
                       style: TextStyle(
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w800,
                         color: textPrimary,
                         fontSize: 22,
                         letterSpacing: -0.5,
@@ -1674,7 +1670,7 @@ class _DashboardPageState extends State<DashboardPage>
               height: 1,
               indent: 28,
               endIndent: 28,
-              color: textSecondary.withOpacity(0.15),
+              color: cardBorder.withOpacity(0.3),
             ),
             itemBuilder: (context, index) {
               final summary = sortedSummaries[index];
