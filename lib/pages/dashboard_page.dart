@@ -15,13 +15,23 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late List<Transaction> _transactions;
   late List<MonthlyTransactionSummary> _monthlySummaries;
   int _selectedMonthIndex = 0;
   late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  late Animation<double> _slideAnimation;
+  late AnimationController _staggerController;
+  
+  // Individual animations for each component
+  late Animation<double> _bgAnimation;
+  late Animation<double> _progressChartAnimation;
+  late Animation<double> _transactionChartAnimation;
+  late Animation<double> _receiptsListAnimation;
+  late Animation<double> _heroCardAnimation;
+  late Animation<double> _monthlySummaryAnimation;
+  late Animation<double> _metricCardsAnimation;
+  late Animation<double> _targetCardAnimation;
+  late Animation<double> _topSendersAnimation;
 
   final currencyFormat = NumberFormat.currency(
     symbol: 'RWF ',
@@ -184,24 +194,69 @@ class _DashboardPageState extends State<DashboardPage>
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-    _fadeAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+    
+    _staggerController = AnimationController(
+      duration: const Duration(milliseconds: 1800),
+      vsync: this,
     );
-    _slideAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: const Interval(0.3, 1.0, curve: Curves.easeOutCubic),
+    
+    // Staggered animations with smooth curves for each component
+    _bgAnimation = CurvedAnimation(
+      parent: _staggerController,
+      curve: const Interval(0.0, 0.3, curve: Curves.easeOutCubic),
     );
+    
+    _progressChartAnimation = CurvedAnimation(
+      parent: _staggerController,
+      curve: const Interval(0.05, 0.35, curve: Curves.easeOutCubic),
+    );
+    
+    _transactionChartAnimation = CurvedAnimation(
+      parent: _staggerController,
+      curve: const Interval(0.1, 0.4, curve: Curves.easeOutCubic),
+    );
+    
+    _receiptsListAnimation = CurvedAnimation(
+      parent: _staggerController,
+      curve: const Interval(0.15, 0.45, curve: Curves.easeOutCubic),
+    );
+    
+    _heroCardAnimation = CurvedAnimation(
+      parent: _staggerController,
+      curve: const Interval(0.2, 0.5, curve: Curves.easeOutCubic),
+    );
+    
+    _monthlySummaryAnimation = CurvedAnimation(
+      parent: _staggerController,
+      curve: const Interval(0.25, 0.55, curve: Curves.easeOutCubic),
+    );
+    
+    _metricCardsAnimation = CurvedAnimation(
+      parent: _staggerController,
+      curve: const Interval(0.3, 0.6, curve: Curves.easeOutCubic),
+    );
+    
+    _targetCardAnimation = CurvedAnimation(
+      parent: _staggerController,
+      curve: const Interval(0.35, 0.65, curve: Curves.easeOutCubic),
+    );
+    
+    _topSendersAnimation = CurvedAnimation(
+      parent: _staggerController,
+      curve: const Interval(0.4, 0.7, curve: Curves.easeOutCubic),
+    );
+    
     _processTransactions();
-    _animationController.forward();
+    _staggerController.forward();
   }
 
   @override
   void dispose() {
     _animationController.dispose();
+    _staggerController.dispose();
     super.dispose();
   }
 
@@ -266,41 +321,65 @@ class _DashboardPageState extends State<DashboardPage>
           : Stack(
               children: [
                 // Epic animated gradient background
-                _buildGradientBackground(),
+                AnimatedBuilder(
+                  animation: _bgAnimation,
+                  builder: (context, child) {
+                    return Opacity(
+                      opacity: _bgAnimation.value,
+                      child: child,
+                    );
+                  },
+                  child: _buildGradientBackground(),
+                ),
                 // Main content
                 CustomScrollView(
                   slivers: [
                     _buildAppBar(),
                     SliverToBoxAdapter(
-                      child: FadeTransition(
-                        opacity: _fadeAnimation,
-                        child: SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(0, 0.1),
-                            end: Offset.zero,
-                          ).animate(_slideAnimation),
-                          child: Column(
-                            children: [
-                              const SizedBox(height: 4),
-                              _buildMonthProgressChart(),
-                              const SizedBox(height: 12),
-                              _buildTransactionChart(),
-                              const SizedBox(height: 12),
-                              _buildMonthlyReceiptsList(),
-                              const SizedBox(height: 12),
-                              _buildHeroCard(),
-                              const SizedBox(height: 12),
-                              _buildMonthlySummaryCard(),
-                              const SizedBox(height: 12),
-                              _buildMetricCards(),
-                              const SizedBox(height: 12),
-                              _buildNextMonthTargetCard(),
-                              const SizedBox(height: 12),
-                              _buildTopSendersCard(),
-                              const SizedBox(height: 24),
-                            ],
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 4),
+                          _buildAnimatedComponent(
+                            animation: _progressChartAnimation,
+                            child: _buildMonthProgressChart(),
                           ),
-                        ),
+                          const SizedBox(height: 12),
+                          _buildAnimatedComponent(
+                            animation: _transactionChartAnimation,
+                            child: _buildTransactionChart(),
+                          ),
+                          const SizedBox(height: 12),
+                          _buildAnimatedComponent(
+                            animation: _receiptsListAnimation,
+                            child: _buildMonthlyReceiptsList(),
+                          ),
+                          const SizedBox(height: 12),
+                          _buildAnimatedComponent(
+                            animation: _heroCardAnimation,
+                            child: _buildHeroCard(),
+                          ),
+                          const SizedBox(height: 12),
+                          _buildAnimatedComponent(
+                            animation: _monthlySummaryAnimation,
+                            child: _buildMonthlySummaryCard(),
+                          ),
+                          const SizedBox(height: 12),
+                          _buildAnimatedComponent(
+                            animation: _metricCardsAnimation,
+                            child: _buildMetricCards(),
+                          ),
+                          const SizedBox(height: 12),
+                          _buildAnimatedComponent(
+                            animation: _targetCardAnimation,
+                            child: _buildNextMonthTargetCard(),
+                          ),
+                          const SizedBox(height: 12),
+                          _buildAnimatedComponent(
+                            animation: _topSendersAnimation,
+                            child: _buildTopSendersCard(),
+                          ),
+                          const SizedBox(height: 24),
+                        ],
                       ),
                     ),
                   ],
@@ -310,78 +389,120 @@ class _DashboardPageState extends State<DashboardPage>
     );
   }
 
-  /// Epic flowing gradient background inspired by Ripple
+  /// Builds an animated component with fade, slide, and scale effects
+  Widget _buildAnimatedComponent({
+    required Animation<double> animation,
+    required Widget child,
+    double slideOffset = 30.0,
+  }) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, slideOffset * (1 - animation.value)),
+          child: Opacity(
+            opacity: animation.value.clamp(0.0, 1.0),
+            child: Transform.scale(
+              scale: 0.95 + (0.05 * animation.value),
+              alignment: Alignment.center,
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+
+  /// Epic flowing gradient background inspired by Ripple with animations
   Widget _buildGradientBackground() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [bgColor, bgGradient1, bgGradient2, bgGradient1, bgColor],
-          stops: [0.0, 0.25, 0.5, 0.75, 1.0],
-        ),
-      ),
-      child: Stack(
-        children: [
-          // Flowing coral orb - top right
-          Positioned(
-            top: -100,
-            right: -80,
-            child: Container(
-              width: 350,
-              height: 350,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    primaryColor.withOpacity(0.25),
-                    primaryColor.withOpacity(0.1),
-                    primaryColor.withOpacity(0.0),
-                  ],
-                ),
-              ),
+    return AnimatedBuilder(
+      animation: _staggerController,
+      builder: (context, child) {
+        final pulseValue = (_staggerController.value * 2 * 3.14159).clamp(0.0, 6.28);
+        final pulseFactor = 1.0 + (0.05 * (1 + (pulseValue).abs() / 6.28));
+        
+        return Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [bgColor, bgGradient1, bgGradient2, bgGradient1, bgColor],
+              stops: [0.0, 0.25, 0.5, 0.75, 1.0],
             ),
           ),
-          // Purple accent orb - center left
-          Positioned(
-            top: 300,
-            left: -120,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    accentPurple.withOpacity(0.2),
-                    accentPurple.withOpacity(0.05),
-                    accentPurple.withOpacity(0.0),
-                  ],
+          child: Stack(
+            children: [
+              // Flowing coral orb - top right
+              Positioned(
+                top: -100 + (20 * _staggerController.value),
+                right: -80 + (10 * _staggerController.value),
+                child: Transform.scale(
+                  scale: pulseFactor,
+                  child: Container(
+                    width: 350,
+                    height: 350,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          primaryColor.withValues(alpha: 0.25 * _staggerController.value),
+                          primaryColor.withValues(alpha: 0.1 * _staggerController.value),
+                          primaryColor.withValues(alpha: 0.0),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          // Warm coral flow - bottom
-          Positioned(
-            bottom: 100,
-            right: -50,
-            child: Container(
-              width: 400,
-              height: 400,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    primaryLight.withOpacity(0.15),
-                    primaryColor.withOpacity(0.05),
-                    Colors.transparent,
-                  ],
+              // Purple accent orb - center left
+              Positioned(
+                top: 300 - (15 * _staggerController.value),
+                left: -120 + (20 * _staggerController.value),
+                child: Transform.scale(
+                  scale: pulseFactor,
+                  child: Container(
+                    width: 300,
+                    height: 300,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          accentPurple.withValues(alpha: 0.2 * _staggerController.value),
+                          accentPurple.withValues(alpha: 0.05 * _staggerController.value),
+                          accentPurple.withValues(alpha: 0.0),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
+              // Warm coral flow - bottom
+              Positioned(
+                bottom: 100 + (10 * _staggerController.value),
+                right: -50 - (15 * _staggerController.value),
+                child: Transform.scale(
+                  scale: pulseFactor,
+                  child: Container(
+                    width: 400,
+                    height: 400,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          primaryLight.withValues(alpha: 0.15 * _staggerController.value),
+                          primaryColor.withValues(alpha: 0.05 * _staggerController.value),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -401,8 +522,8 @@ class _DashboardPageState extends State<DashboardPage>
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    cardColor.withOpacity(0.8),
-                    bgColor.withOpacity(0.6),
+                    cardColor.withValues(alpha: 0.8),
+                    bgColor.withValues(alpha: 0.6),
                   ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
@@ -441,10 +562,10 @@ class _DashboardPageState extends State<DashboardPage>
           stops: [0.0, 0.6, 1.0],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: primaryLight.withOpacity(0.3), width: 1),
+        border: Border.all(color: primaryLight.withValues(alpha: 0.3), width: 1),
         boxShadow: [
           BoxShadow(
-            color: primaryColor.withOpacity(0.4),
+            color: primaryColor.withValues(alpha: 0.4),
             blurRadius: 20,
             offset: const Offset(0, 10),
             spreadRadius: -5,
@@ -465,7 +586,7 @@ class _DashboardPageState extends State<DashboardPage>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
-                    colors: [Colors.white.withOpacity(0.2), Colors.transparent],
+                    colors: [Colors.white.withValues(alpha: 0.2), Colors.transparent],
                   ),
                 ),
               ),
@@ -518,10 +639,10 @@ class _DashboardPageState extends State<DashboardPage>
                       vertical: 5,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
+                      color: Colors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(30),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.25),
+                        color: Colors.white.withValues(alpha: 0.25),
                         width: 1,
                       ),
                     ),
@@ -531,7 +652,7 @@ class _DashboardPageState extends State<DashboardPage>
                         Container(
                           padding: const EdgeInsets.all(3),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -566,12 +687,12 @@ class _DashboardPageState extends State<DashboardPage>
     return Container(
       margin: margin ?? const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: cardColor.withOpacity(0.7),
+        color: cardColor.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cardBorder.withOpacity(0.5), width: 1),
+        border: Border.all(color: cardBorder.withValues(alpha: 0.5), width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 16,
             offset: const Offset(0, 6),
             spreadRadius: -3,
@@ -633,13 +754,13 @@ class _DashboardPageState extends State<DashboardPage>
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        accentColor.withOpacity(0.15),
-                        primaryColor.withOpacity(0.15),
+                        accentColor.withValues(alpha: 0.15),
+                        primaryColor.withValues(alpha: 0.15),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: primaryColor.withOpacity(0.3),
+                      color: primaryColor.withValues(alpha: 0.3),
                       width: 1,
                     ),
                   ),
@@ -703,19 +824,19 @@ class _DashboardPageState extends State<DashboardPage>
                   gradient: LinearGradient(
                     colors: percentageChange >= 0
                         ? [
-                            successColor.withOpacity(0.12),
-                            successColor.withOpacity(0.05),
+                            successColor.withValues(alpha: 0.12),
+                            successColor.withValues(alpha: 0.05),
                           ]
                         : [
-                            dangerColor.withOpacity(0.12),
-                            dangerColor.withOpacity(0.05),
+                            dangerColor.withValues(alpha: 0.12),
+                            dangerColor.withValues(alpha: 0.05),
                           ],
                   ),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: percentageChange >= 0
-                        ? successColor.withOpacity(0.3)
-                        : dangerColor.withOpacity(0.3),
+                        ? successColor.withValues(alpha: 0.3)
+                        : dangerColor.withValues(alpha: 0.3),
                     width: 1,
                   ),
                 ),
@@ -725,8 +846,8 @@ class _DashboardPageState extends State<DashboardPage>
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
                         color: percentageChange >= 0
-                            ? successColor.withOpacity(0.2)
-                            : dangerColor.withOpacity(0.2),
+                            ? successColor.withValues(alpha: 0.2)
+                            : dangerColor.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
@@ -798,20 +919,22 @@ class _DashboardPageState extends State<DashboardPage>
           Row(
             children: [
               Expanded(
-                child: _buildMetricCard(
+                child: _buildAnimatedMetricCard(
                   'Avg Transaction',
                   currencyFormat.format(averageReceivedAmount),
                   Icons.analytics_outlined,
                   metricGradients[0],
+                  0,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _buildMetricCard(
+                child: _buildAnimatedMetricCard(
                   'This Month',
                   currencyFormat.format(thisMonthAvg),
                   Icons.calendar_today_outlined,
                   metricGradients[1],
+                  1,
                 ),
               ),
             ],
@@ -820,26 +943,67 @@ class _DashboardPageState extends State<DashboardPage>
           Row(
             children: [
               Expanded(
-                child: _buildMetricCard(
+                child: _buildAnimatedMetricCard(
                   'Highest',
                   currencyFormat.format(highestTransaction),
                   Icons.arrow_upward_rounded,
                   metricGradients[2],
+                  2,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _buildMetricCard(
+                child: _buildAnimatedMetricCard(
                   'Total Fees',
                   currencyFormat.format(totalFees),
                   Icons.money_off_outlined,
                   metricGradients[3],
+                  3,
                 ),
               ),
             ],
           ),
         ],
       ),
+    );
+  }
+
+  /// Builds an animated metric card with stagger delay based on index
+  Widget _buildAnimatedMetricCard(
+    String label,
+    String value,
+    IconData icon,
+    List<Color> gradientColors,
+    int index,
+  ) {
+    // Calculate stagger delay based on index (each card delays by 100ms equivalent)
+    final startDelay = 0.30 + (index * 0.05);
+    final endDelay = 0.60 + (index * 0.05);
+    
+    final animation = CurvedAnimation(
+      parent: _staggerController,
+      curve: Interval(
+        startDelay.clamp(0.0, 1.0),
+        endDelay.clamp(0.0, 1.0),
+        curve: Curves.easeOutBack,
+      ),
+    );
+
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, 20 * (1 - animation.value)),
+          child: Opacity(
+            opacity: animation.value.clamp(0.0, 1.0),
+            child: Transform.scale(
+              scale: 0.9 + (0.1 * animation.value),
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: _buildMetricCard(label, value, icon, gradientColors),
     );
   }
 
@@ -852,12 +1016,12 @@ class _DashboardPageState extends State<DashboardPage>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: cardColor.withOpacity(0.6),
+        color: cardColor.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cardBorder.withOpacity(0.4), width: 1),
+        border: Border.all(color: cardBorder.withValues(alpha: 0.4), width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
+            color: Colors.black.withValues(alpha: 0.15),
             blurRadius: 10,
             offset: const Offset(0, 4),
             spreadRadius: -3,
@@ -882,7 +1046,7 @@ class _DashboardPageState extends State<DashboardPage>
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                     BoxShadow(
-                      color: gradientColors.first.withOpacity(0.3),
+                      color: gradientColors.first.withValues(alpha: 0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 3),
                       spreadRadius: -2,
@@ -940,10 +1104,10 @@ class _DashboardPageState extends State<DashboardPage>
           stops: [0.0, 0.5, 1.0],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
         boxShadow: [
           BoxShadow(
-            color: successColor.withOpacity(0.4),
+            color: successColor.withValues(alpha: 0.4),
             blurRadius: 20,
             offset: const Offset(0, 10),
             spreadRadius: -5,
@@ -965,8 +1129,8 @@ class _DashboardPageState extends State<DashboardPage>
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      Colors.white.withOpacity(0.2),
-                      Colors.white.withOpacity(0.05),
+                      Colors.white.withValues(alpha: 0.2),
+                      Colors.white.withValues(alpha: 0.05),
                       Colors.transparent,
                     ],
                   ),
@@ -983,8 +1147,8 @@ class _DashboardPageState extends State<DashboardPage>
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      Colors.white.withOpacity(0.15),
-                      Colors.white.withOpacity(0.03),
+                      Colors.white.withValues(alpha: 0.15),
+                      Colors.white.withValues(alpha: 0.03),
                       Colors.transparent,
                     ],
                   ),
@@ -999,9 +1163,9 @@ class _DashboardPageState extends State<DashboardPage>
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.white.withOpacity(0.1),
+                      Colors.white.withValues(alpha: 0.1),
                       Colors.transparent,
-                      Colors.black.withOpacity(0.1),
+                      Colors.black.withValues(alpha: 0.1),
                     ],
                     stops: const [0.0, 0.3, 1.0],
                   ),
@@ -1018,7 +1182,7 @@ class _DashboardPageState extends State<DashboardPage>
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(
@@ -1065,7 +1229,7 @@ class _DashboardPageState extends State<DashboardPage>
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
+                      color: Colors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
@@ -1097,7 +1261,7 @@ class _DashboardPageState extends State<DashboardPage>
                         Container(
                           width: 1,
                           height: 28,
-                          color: Colors.white.withOpacity(0.3),
+                          color: Colors.white.withValues(alpha: 0.3),
                         ),
                         Expanded(
                           child: Padding(
@@ -1196,11 +1360,11 @@ class _DashboardPageState extends State<DashboardPage>
                     horizontalInterval: null,
                     verticalInterval: 1,
                     getDrawingHorizontalLine: (value) => FlLine(
-                      color: textSecondary.withOpacity(0.15),
+                      color: textSecondary.withValues(alpha: 0.15),
                       strokeWidth: 1,
                     ),
                     getDrawingVerticalLine: (value) => FlLine(
-                      color: textSecondary.withOpacity(0.15),
+                      color: textSecondary.withValues(alpha: 0.15),
                       strokeWidth: 1,
                     ),
                   ),
@@ -1320,9 +1484,9 @@ class _DashboardPageState extends State<DashboardPage>
                         show: true,
                         gradient: LinearGradient(
                           colors: [
-                            primaryColor.withOpacity(0.3),
-                            primaryColor.withOpacity(0.1),
-                            primaryColor.withOpacity(0.0),
+                            primaryColor.withValues(alpha: 0.3),
+                            primaryColor.withValues(alpha: 0.1),
+                            primaryColor.withValues(alpha: 0.0),
                           ],
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
@@ -1401,8 +1565,8 @@ class _DashboardPageState extends State<DashboardPage>
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        accentPurple.withOpacity(0.3),
-                        accentPurple.withOpacity(0.1),
+                        accentPurple.withValues(alpha: 0.3),
+                        accentPurple.withValues(alpha: 0.1),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(10),
@@ -1444,7 +1608,7 @@ class _DashboardPageState extends State<DashboardPage>
                     'Earned this month',
                     style: TextStyle(
                       fontSize: 13,
-                      color: textSecondary.withOpacity(0.8),
+                      color: textSecondary.withValues(alpha: 0.8),
                     ),
                   ),
                 ],
@@ -1514,8 +1678,8 @@ class _DashboardPageState extends State<DashboardPage>
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: isAchieved
-                    ? successColor.withOpacity(0.2)
-                    : color.withOpacity(0.15),
+                    ? successColor.withValues(alpha: 0.2)
+                    : color.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -1536,7 +1700,7 @@ class _DashboardPageState extends State<DashboardPage>
             Container(
               height: 10,
               decoration: BoxDecoration(
-                color: cardBorder.withOpacity(0.3),
+                color: cardBorder.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(5),
               ),
             ),
@@ -1546,12 +1710,12 @@ class _DashboardPageState extends State<DashboardPage>
                 height: 10,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [color, color.withOpacity(0.7)],
+                    colors: [color, color.withValues(alpha: 0.7)],
                   ),
                   borderRadius: BorderRadius.circular(5),
                   boxShadow: [
                     BoxShadow(
-                      color: color.withOpacity(0.4),
+                      color: color.withValues(alpha: 0.4),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
@@ -1570,7 +1734,7 @@ class _DashboardPageState extends State<DashboardPage>
               'Goal: ${currencyFormat.format(goal)}',
               style: TextStyle(
                 fontSize: 11,
-                color: textSecondary.withOpacity(0.7),
+                color: textSecondary.withValues(alpha: 0.7),
               ),
             ),
             Text(
@@ -1665,7 +1829,7 @@ class _DashboardPageState extends State<DashboardPage>
                                           gradientColors.length],
                                       gradientColors[index %
                                               gradientColors.length]
-                                          .withOpacity(0.7),
+                                          .withValues(alpha: 0.7),
                                     ],
                                   ),
                                   borderRadius: BorderRadius.circular(8),
