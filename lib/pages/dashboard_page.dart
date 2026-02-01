@@ -292,8 +292,6 @@ class _DashboardPageState extends State<DashboardPage>
 
     _monthlySummaries.sort((a, b) => a.month.compareTo(b.month));
 
-    final now = DateTime.now();
-    final currentMonth = DateTime(now.year, now.month);
     final currentMonthIndex = _monthlySummaries.indexWhere(
       (summary) =>
           summary.month.year == currentMonth.year &&
