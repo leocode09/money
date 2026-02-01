@@ -266,6 +266,13 @@ class _DashboardPageState extends State<DashboardPage>
       monthlyData.putIfAbsent(month, () => []).add(transaction);
     }
 
+    // Ensure current month exists even if there are no transactions
+    final now = DateTime.now();
+    final currentMonth = DateTime(now.year, now.month);
+    if (!monthlyData.containsKey(currentMonth)) {
+      monthlyData[currentMonth] = [];
+    }
+
     _monthlySummaries = monthlyData.entries.map((entry) {
       final receivedAmount = entry.value
           .where((t) => t.type == 'RECEIVED')
