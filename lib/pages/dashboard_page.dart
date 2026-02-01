@@ -80,9 +80,8 @@ class _DashboardPageState extends State<DashboardPage>
     return totals.take(5).toList();
   }
 
-  /// Calculates the next month target based on average growth rate
-  /// Excludes current month from the calculation
-  Map<String, dynamic> get nextMonthTarget {
+  /// Calculates the target based on historical data relative to [referenceDate]
+  Map<String, dynamic> _calculateTargetForDate(DateTime referenceDate) {
     if (_monthlySummaries.isEmpty) {
       return {'target': 0.0, 'growthRate': 0.05, 'lastMonth': 0.0};
     }
@@ -92,11 +91,11 @@ class _DashboardPageState extends State<DashboardPage>
       _monthlySummaries,
     )..sort((a, b) => a.month.compareTo(b.month));
 
-    // Exclude current month
-    final now = DateTime.now();
-    final currentMonth = DateTime(now.year, now.month);
+    // Exclude the reference month and future months.
+    // We want the target that was applicable FOR the reference month
+    // (calculated based on the history prior to it).
     final completedMonths = sortedSummaries
-        .where((s) => s.month.isBefore(currentMonth))
+        .where((s) => s.month.isBefore(referenceDate))
         .toList();
 
     if (completedMonths.isEmpty) {
@@ -118,11 +117,19 @@ class _DashboardPageState extends State<DashboardPage>
       }
     }
 
-    // Average the growth rates, ensure minimum 5% growth
-    double avgGrowthRate = 0.05; // Default 5%
+    // Average the growth rates
+    // Dynamic Growth: No hard floor, but we ensure the target itself isn't regressive
+    double avgGrowthRate = 0.05; // Default for limited data
     if (growthRates.isNotEmpty) {
       avgGrowthRate = growthRates.reduce((a, b) => a + b) / growthRates.length;
-      if (avgGrowthRate < 0.05) avgGrowthRate = 0.05; // Minimum 5%
+      
+      // Apply a small "ambition" buffer to the trend (e.g., +2%)
+      // This ensures that even with flat growth (0%), the target pushes for a bit more.
+      avgGrowthRate += 0.02;
+      
+      // Ensure we don't project a massive decline even if trend is negative.
+      // 0.0 means "maintain last month's amount".
+      if (avgGrowthRate < 0.0) avgGrowthRate = 0.0;
     }
 
     // Calculate target: Last Month × (1 + Growth Rate)
@@ -135,6 +142,27 @@ class _DashboardPageState extends State<DashboardPage>
       'lastMonth': lastMonthAmount,
       'lastMonthDate': recentMonths.last.month,
     };
+  }
+
+  /// Calculates the next month target based on average growth rate
+  /// Respects the currently selected month in the dashboard
+  Map<String, dynamic> get nextMonthTarget {
+    if (_monthlySummaries.isEmpty) {
+      return {'target': 0.0, 'growthRate': 0.05, 'lastMonth': 0.0};
+    }
+
+    // Sort descending to match the index logic (newest first)
+    final descendingSummaries = List<MonthlyTransactionSummary>.from(
+      _monthlySummaries,
+    )..sort((a, b) => b.month.compareTo(a.month));
+
+    // Safety check
+    if (_selectedMonthIndex < 0 || _selectedMonthIndex >= descendingSummaries.length) {
+       return {'target': 0.0, 'growthRate': 0.05, 'lastMonth': 0.0};
+    }
+
+    final selectedDate = descendingSummaries[_selectedMonthIndex].month;
+    return _calculateTargetForDate(selectedDate);
   }
 
   /// Gets month progress compared to previous month
@@ -185,9 +213,9 @@ class _DashboardPageState extends State<DashboardPage>
         : 0.0;
     final previousRemaining = previousMonthAmount - currentAmount;
 
-    // Calculate target (previous month + growth rate)
-    final target = nextMonthTarget;
-    final targetAmount = target['target'] as double;
+    // Calculate target specifically for the selected month
+    final targetMap = _calculateTargetForDate(selectedMonthData.month);
+    final targetAmount = targetMap['target'] as double;
     final targetProgress = targetAmount > 0
         ? (currentAmount / targetAmount * 100).clamp(0.0, 200.0)
         : 0.0;
