@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:intl/intl.dart';
+import '../app_colors.dart';
 import '../models/transaction.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -23,8 +24,8 @@ class _DashboardPageState extends State<DashboardPage>
   late AnimationController _animationController;
   late AnimationController _staggerController;
   late ScrollController _scrollController;
+  bool _showTargetLine = true;
 
-  // Individual animations for each component
   late Animation<double> _bgAnimation;
 
   final currencyFormat = NumberFormat.currency(
@@ -32,21 +33,23 @@ class _DashboardPageState extends State<DashboardPage>
     decimalDigits: 0,
   );
 
-  // Ripple-inspired epic dark color palette
-  static const primaryColor = Color(0xFFE8956A); // Vibrant warm coral
-  static const primaryDark = Color(0xFFD4734A); // Rich coral
-  static const primaryLight = Color(0xFFFFB088); // Light coral glow
-  static const accentColor = Color(0xFFFFCBA4); // Warm golden sand
-  static const accentPurple = Color(0xFF9D7BEA); // Soft purple accent
-  static const successColor = Color(0xFF5EEAD4); // Vibrant teal
-  static const dangerColor = Color(0xFFFF8A8A); // Soft coral red
-  static const bgColor = Color(0xFF0D0A0F); // Deep rich black-purple
-  static const bgGradient1 = Color(0xFF1A1020); // Dark purple
-  static const bgGradient2 = Color(0xFF2A1830); // Warm purple
-  static const cardColor = Color(0xFF1E1525); // Dark purple glass
-  static const cardBorder = Color(0xFF3D2D4A); // Subtle purple border
-  static const textPrimary = Color(0xFFFFF8F0); // Warm white
-  static const textSecondary = Color(0xFFCBB9A8); // Muted warm cream
+  AppColors get _c => Theme.of(context).extension<AppColors>()!;
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+
+  Color get primaryColor => _c.primary;
+  Color get primaryDark => _c.primaryDark;
+  Color get primaryLight => _c.primaryLight;
+  Color get accentColor => _c.accent;
+  Color get accentPurple => _c.accentPurple;
+  Color get successColor => _c.success;
+  Color get dangerColor => _c.danger;
+  Color get bgColor => _c.bg;
+  Color get bgGradient1 => _c.bgGradient1;
+  Color get bgGradient2 => _c.bgGradient2;
+  Color get cardColor => _c.card;
+  Color get cardBorder => _c.cardBorder;
+  Color get textPrimary => _c.textPrimary;
+  Color get textSecondary => _c.textSecondary;
 
   double get totalReceivedAmount => _transactions
       .where((t) => t.isReceived)
@@ -80,20 +83,15 @@ class _DashboardPageState extends State<DashboardPage>
     return totals.take(5).toList();
   }
 
-  /// Calculates the target based on historical data relative to [referenceDate]
   Map<String, dynamic> _calculateTargetForDate(DateTime referenceDate) {
     if (_monthlySummaries.isEmpty) {
       return {'target': 0.0, 'growthRate': 0.05, 'lastMonth': 0.0};
     }
 
-    // Sort by month ascending
     final sortedSummaries = List<MonthlyTransactionSummary>.from(
       _monthlySummaries,
     )..sort((a, b) => a.month.compareTo(b.month));
 
-    // Exclude the reference month and future months.
-    // We want the target that was applicable FOR the reference month
-    // (calculated based on the history prior to it).
     final completedMonths = sortedSummaries
         .where((s) => s.month.isBefore(referenceDate))
         .toList();
@@ -102,12 +100,10 @@ class _DashboardPageState extends State<DashboardPage>
       return {'target': 0.0, 'growthRate': 0.05, 'lastMonth': 0.0};
     }
 
-    // Take last 3 months (or all if less than 3)
     final recentMonths = completedMonths.length <= 3
         ? completedMonths
         : completedMonths.sublist(completedMonths.length - 3);
 
-    // Calculate growth rates for each consecutive pair
     final growthRates = <double>[];
     for (int i = 1; i < recentMonths.length; i++) {
       final previous = recentMonths[i - 1].totalReceived;
@@ -117,22 +113,13 @@ class _DashboardPageState extends State<DashboardPage>
       }
     }
 
-    // Average the growth rates
-    // Dynamic Growth: No hard floor, but we ensure the target itself isn't regressive
-    double avgGrowthRate = 0.05; // Default for limited data
+    double avgGrowthRate = 0.05;
     if (growthRates.isNotEmpty) {
       avgGrowthRate = growthRates.reduce((a, b) => a + b) / growthRates.length;
-      
-      // Apply a small "ambition" buffer to the trend (e.g., +2%)
-      // This ensures that even with flat growth (0%), the target pushes for a bit more.
       avgGrowthRate += 0.02;
-      
-      // Ensure we don't project a massive decline even if trend is negative.
-      // 0.0 means "maintain last month's amount".
       if (avgGrowthRate < 0.0) avgGrowthRate = 0.0;
     }
 
-    // Calculate target: Last Month × (1 + Growth Rate)
     final lastMonthAmount = recentMonths.last.totalReceived;
     final target = lastMonthAmount * (1 + avgGrowthRate);
 
@@ -144,19 +131,15 @@ class _DashboardPageState extends State<DashboardPage>
     };
   }
 
-  /// Calculates the next month target based on average growth rate
-  /// Respects the currently selected month in the dashboard
   Map<String, dynamic> get nextMonthTarget {
     if (_monthlySummaries.isEmpty) {
       return {'target': 0.0, 'growthRate': 0.05, 'lastMonth': 0.0};
     }
 
-    // Sort descending to match the index logic (newest first)
     final descendingSummaries = List<MonthlyTransactionSummary>.from(
       _monthlySummaries,
     )..sort((a, b) => b.month.compareTo(a.month));
 
-    // Safety check
     if (_selectedMonthIndex < 0 || _selectedMonthIndex >= descendingSummaries.length) {
        return {'target': 0.0, 'growthRate': 0.05, 'lastMonth': 0.0};
     }
@@ -165,8 +148,6 @@ class _DashboardPageState extends State<DashboardPage>
     return _calculateTargetForDate(selectedDate);
   }
 
-  /// Gets month progress compared to previous month
-  /// Uses the selected progress month index to determine which month to show
   Map<String, dynamic> getMonthProgress(int monthIndex) {
     if (_monthlySummaries.isEmpty) {
       return {
@@ -178,16 +159,13 @@ class _DashboardPageState extends State<DashboardPage>
       };
     }
 
-    // Sort summaries descending (newest first) for the dropdown
     final sortedSummaries = List<MonthlyTransactionSummary>.from(
       _monthlySummaries,
     )..sort((a, b) => b.month.compareTo(a.month));
 
-    // Clamp index to valid range
     final clampedIndex = monthIndex.clamp(0, sortedSummaries.length - 1);
     final selectedMonthData = sortedSummaries[clampedIndex];
 
-    // Find the previous month's data
     final previousMonthDate = DateTime(
       selectedMonthData.month.year,
       selectedMonthData.month.month - 1,
@@ -207,13 +185,11 @@ class _DashboardPageState extends State<DashboardPage>
     final currentAmount = selectedMonthData.totalReceived;
     final previousMonthAmount = previousMonthData.totalReceived;
 
-    // Progress towards previous month
     final previousProgress = previousMonthAmount > 0
         ? (currentAmount / previousMonthAmount * 100).clamp(0.0, 200.0)
         : 0.0;
     final previousRemaining = previousMonthAmount - currentAmount;
 
-    // Calculate target specifically for the selected month
     final targetMap = _calculateTargetForDate(selectedMonthData.month);
     final targetAmount = targetMap['target'] as double;
     final targetProgress = targetAmount > 0
@@ -234,7 +210,6 @@ class _DashboardPageState extends State<DashboardPage>
     };
   }
 
-  /// Gets current month progress (for backward compatibility)
   Map<String, dynamic> get currentMonthProgress {
     return getMonthProgress(_selectedProgressMonthIndex);
   }
@@ -253,7 +228,6 @@ class _DashboardPageState extends State<DashboardPage>
       vsync: this,
     );
 
-    // Staggered animations with smooth curves for each component
     _bgAnimation = CurvedAnimation(
       parent: _staggerController,
       curve: const Interval(0.0, 0.3, curve: Curves.easeOutCubic),
@@ -261,8 +235,6 @@ class _DashboardPageState extends State<DashboardPage>
 
     _processTransactions();
 
-    // Delay animation start until after the first frame is rendered
-    // This ensures AnimatedBuilder widgets are mounted and listening
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _staggerController.forward();
     });
@@ -294,7 +266,6 @@ class _DashboardPageState extends State<DashboardPage>
       monthlyData.putIfAbsent(month, () => []).add(transaction);
     }
 
-    // Ensure current month exists even if there are no transactions
     final now = DateTime.now();
     final currentMonth = DateTime(now.year, now.month);
     if (!monthlyData.containsKey(currentMonth)) {
@@ -341,7 +312,6 @@ class _DashboardPageState extends State<DashboardPage>
           ? const Center(child: Text('No transactions found'))
           : Stack(
               children: [
-                // Epic animated gradient background
                 AnimatedBuilder(
                   animation: _bgAnimation,
                   builder: (context, child) {
@@ -349,7 +319,6 @@ class _DashboardPageState extends State<DashboardPage>
                   },
                   child: _buildGradientBackground(),
                 ),
-                // Main content
                 CustomScrollView(
                   controller: _scrollController,
                   slivers: [
@@ -416,7 +385,6 @@ class _DashboardPageState extends State<DashboardPage>
     );
   }
 
-  /// Epic flowing gradient background inspired by Ripple with animations
   Widget _buildGradientBackground() {
     return AnimatedBuilder(
       animation: _staggerController,
@@ -428,17 +396,16 @@ class _DashboardPageState extends State<DashboardPage>
         final pulseFactor = 1.0 + (0.05 * (1 + (pulseValue).abs() / 6.28));
 
         return Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [bgColor, bgGradient1, bgGradient2, bgGradient1, bgColor],
-              stops: [0.0, 0.25, 0.5, 0.75, 1.0],
+              stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
             ),
           ),
           child: Stack(
             children: [
-              // Flowing coral orb - top right
               Positioned(
                 top: -100 + (20 * _staggerController.value),
                 right: -80 + (10 * _staggerController.value),
@@ -464,7 +431,6 @@ class _DashboardPageState extends State<DashboardPage>
                   ),
                 ),
               ),
-              // Purple accent orb - center left
               Positioned(
                 top: 300 - (15 * _staggerController.value),
                 left: -120 + (20 * _staggerController.value),
@@ -490,7 +456,6 @@ class _DashboardPageState extends State<DashboardPage>
                   ),
                 ),
               ),
-              // Warm coral flow - bottom
               Positioned(
                 bottom: 100 + (10 * _staggerController.value),
                 right: -50 - (15 * _staggerController.value),
@@ -531,6 +496,22 @@ class _DashboardPageState extends State<DashboardPage>
       backgroundColor: Colors.transparent,
       foregroundColor: textPrimary,
       elevation: 0,
+      actions: [
+        IconButton(
+          onPressed: () {
+            themeNotifier.value = themeNotifier.value == ThemeMode.dark
+                ? ThemeMode.light
+                : ThemeMode.dark;
+          },
+          icon: Icon(
+            _isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+            color: textSecondary,
+            size: 22,
+          ),
+          tooltip: _isDark ? 'Switch to light theme' : 'Switch to dark theme',
+        ),
+        const SizedBox(width: 4),
+      ],
       flexibleSpace: FlexibleSpaceBar(
         background: ClipRRect(
           child: BackdropFilter(
@@ -550,7 +531,7 @@ class _DashboardPageState extends State<DashboardPage>
           ),
         ),
         title: ShaderMask(
-          shaderCallback: (bounds) => const LinearGradient(
+          shaderCallback: (bounds) => LinearGradient(
             colors: [textPrimary, accentColor],
           ).createShader(bounds),
           child: const Text(
@@ -572,11 +553,11 @@ class _DashboardPageState extends State<DashboardPage>
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [primaryColor, primaryDark, Color(0xFFB85A3A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          stops: [0.0, 0.6, 1.0],
+          stops: const [0.0, 0.6, 1.0],
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
@@ -596,7 +577,6 @@ class _DashboardPageState extends State<DashboardPage>
         borderRadius: BorderRadius.circular(20),
         child: Stack(
           children: [
-            // Flowing light orbs
             Positioned(
               top: -40,
               right: -30,
@@ -712,17 +692,16 @@ class _DashboardPageState extends State<DashboardPage>
     );
   }
 
-  /// Glassmorphism card with blur and subtle border
   Widget _buildGlassCard({required Widget child, EdgeInsets? margin}) {
     return Container(
       margin: margin ?? const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: cardColor.withValues(alpha: 0.7),
+        color: cardColor.withValues(alpha: _isDark ? 0.7 : 0.85),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: cardBorder.withValues(alpha: 0.5), width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
+            color: Colors.black.withValues(alpha: _isDark ? 0.2 : 0.08),
             blurRadius: 16,
             offset: const Offset(0, 6),
             spreadRadius: -3,
@@ -767,7 +746,7 @@ class _DashboardPageState extends State<DashboardPage>
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Monthly Summary',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
@@ -798,7 +777,7 @@ class _DashboardPageState extends State<DashboardPage>
                     value: _selectedMonthIndex,
                     underline: const SizedBox.shrink(),
                     isDense: true,
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.keyboard_arrow_down,
                       color: primaryColor,
                       size: 18,
@@ -808,7 +787,7 @@ class _DashboardPageState extends State<DashboardPage>
                         value: entry.key,
                         child: Text(
                           DateFormat('MMM yy').format(entry.value.month),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: primaryColor,
@@ -835,7 +814,7 @@ class _DashboardPageState extends State<DashboardPage>
               builder: (context, animatedAmount, child) {
                 return Text(
                   currencyFormat.format(animatedAmount),
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: textPrimary,
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -847,7 +826,7 @@ class _DashboardPageState extends State<DashboardPage>
             const SizedBox(height: 4),
             Text(
               '${selectedSummary.transactionCount} transaction${selectedSummary.transactionCount != 1 ? 's' : ''} this month',
-              style: const TextStyle(
+              style: TextStyle(
                 color: textSecondary,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
@@ -911,7 +890,7 @@ class _DashboardPageState extends State<DashboardPage>
                     const SizedBox(width: 6),
                     Text(
                       'vs ${DateFormat('MMM').format(previousSummary.month)}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: textSecondary,
                         fontSize: 11,
                       ),
@@ -941,12 +920,11 @@ class _DashboardPageState extends State<DashboardPage>
         ? 0.0
         : thisMonthTotal / thisMonthTransactions.length;
 
-    // Epic gradient pairs for metric cards
     const metricGradients = [
-      [Color(0xFF6366F1), Color(0xFF8B5CF6)], // Indigo to Purple
-      [Color(0xFFEC4899), Color(0xFFF472B6)], // Pink
-      [Color(0xFF14B8A6), Color(0xFF5EEAD4)], // Teal
-      [Color(0xFFF59E0B), Color(0xFFFBBF24)], // Amber
+      [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+      [Color(0xFFEC4899), Color(0xFFF472B6)],
+      [Color(0xFF14B8A6), Color(0xFF5EEAD4)],
+      [Color(0xFFF59E0B), Color(0xFFFBBF24)],
     ];
 
     return Padding(
@@ -1005,7 +983,6 @@ class _DashboardPageState extends State<DashboardPage>
     );
   }
 
-  /// Builds an animated metric card with stagger delay based on index
   Widget _buildAnimatedMetricCard(
     String label,
     String value,
@@ -1013,7 +990,6 @@ class _DashboardPageState extends State<DashboardPage>
     List<Color> gradientColors,
     int index,
   ) {
-    // Calculate stagger delay based on index (each card delays by 100ms equivalent)
     final startDelay = 0.30 + (index * 0.05);
     final endDelay = 0.60 + (index * 0.05);
 
@@ -1095,7 +1071,7 @@ class _DashboardPageState extends State<DashboardPage>
               const SizedBox(height: 10),
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   color: textSecondary,
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
@@ -1107,7 +1083,7 @@ class _DashboardPageState extends State<DashboardPage>
                 alignment: Alignment.centerLeft,
                 child: Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -1158,7 +1134,6 @@ class _DashboardPageState extends State<DashboardPage>
         borderRadius: BorderRadius.circular(32),
         child: Stack(
           children: [
-            // Flowing light effects
             Positioned(
               top: -60,
               right: -50,
@@ -1195,7 +1170,6 @@ class _DashboardPageState extends State<DashboardPage>
                 ),
               ),
             ),
-            // Gradient overlay
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
@@ -1356,6 +1330,14 @@ class _DashboardPageState extends State<DashboardPage>
   Widget _buildTransactionChart() {
     if (_monthlySummaries.isEmpty) return const SizedBox.shrink();
 
+    final targetValue = nextMonthTarget['target'] as double;
+    final maxDataValue = _monthlySummaries
+        .map((s) => s.totalReceived)
+        .reduce((a, b) => a > b ? a : b);
+    final maxY = _showTargetLine
+        ? [maxDataValue, targetValue].reduce((a, b) => a > b ? a : b) * 1.15
+        : maxDataValue * 1.15;
+
     return _buildGlassCard(
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -1365,7 +1347,7 @@ class _DashboardPageState extends State<DashboardPage>
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Income Trend',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
@@ -1374,25 +1356,80 @@ class _DashboardPageState extends State<DashboardPage>
                     letterSpacing: -0.3,
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [primaryColor, primaryDark],
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _showTargetLine = !_showTargetLine;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _showTargetLine
+                              ? successColor.withValues(alpha: 0.15)
+                              : textSecondary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _showTargetLine
+                                ? successColor.withValues(alpha: 0.3)
+                                : textSecondary.withValues(alpha: 0.2),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _showTargetLine
+                                  ? Icons.visibility_rounded
+                                  : Icons.visibility_off_rounded,
+                              color: _showTargetLine
+                                  ? successColor
+                                  : textSecondary,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Target',
+                              style: TextStyle(
+                                color: _showTargetLine
+                                    ? successColor
+                                    : textSecondary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '${_monthlySummaries.length} mo',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [primaryColor, primaryDark],
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${_monthlySummaries.length} mo',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -1429,7 +1466,7 @@ class _DashboardPageState extends State<DashboardPage>
                               DateFormat(
                                 'MMM',
                               ).format(_monthlySummaries[value.toInt()].month),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
                                 color: textSecondary,
                                 fontWeight: FontWeight.w600,
@@ -1450,7 +1487,7 @@ class _DashboardPageState extends State<DashboardPage>
                               value >= 1000000
                                   ? '${(value / 1000000).toStringAsFixed(1)}M'
                                   : '${(value / 1000).toStringAsFixed(0)}K',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
                                 color: textSecondary,
                                 fontWeight: FontWeight.w600,
@@ -1475,35 +1512,33 @@ class _DashboardPageState extends State<DashboardPage>
                           .map((s) => s.totalReceived)
                           .reduce((a, b) => a < b ? a : b) *
                       0.7,
-                  maxY:
-                      [
-                        _monthlySummaries
-                            .map((s) => s.totalReceived)
-                            .reduce((a, b) => a > b ? a : b),
-                        nextMonthTarget['target'] as double,
-                      ].reduce((a, b) => a > b ? a : b) *
-                      1.15,
+                  maxY: maxY,
                   extraLinesData: ExtraLinesData(
-                    horizontalLines: [
-                      HorizontalLine(
-                        y: nextMonthTarget['target'] as double,
-                        color: successColor,
-                        strokeWidth: 2,
-                        dashArray: [8, 4],
-                        label: HorizontalLineLabel(
-                          show: true,
-                          alignment: Alignment.topRight,
-                          padding: const EdgeInsets.only(right: 8, bottom: 4),
-                          style: const TextStyle(
-                            color: successColor,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          labelResolver: (line) =>
-                              'Target: ${currencyFormat.format(line.y)}',
-                        ),
-                      ),
-                    ],
+                    horizontalLines: _showTargetLine
+                        ? [
+                            HorizontalLine(
+                              y: targetValue,
+                              color: successColor,
+                              strokeWidth: 2,
+                              dashArray: [8, 4],
+                              label: HorizontalLineLabel(
+                                show: true,
+                                alignment: Alignment.topRight,
+                                padding: const EdgeInsets.only(
+                                  right: 8,
+                                  bottom: 4,
+                                ),
+                                style: TextStyle(
+                                  color: successColor,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                labelResolver: (line) =>
+                                    'Target: ${currencyFormat.format(line.y)}',
+                              ),
+                            ),
+                          ]
+                        : [],
                   ),
                   lineBarsData: [
                     LineChartBarData(
@@ -1524,7 +1559,7 @@ class _DashboardPageState extends State<DashboardPage>
                         getDotPainter: (spot, percent, barData, index) {
                           return FlDotCirclePainter(
                             radius: 6,
-                            color: Colors.white,
+                            color: _isDark ? Colors.white : cardColor,
                             strokeWidth: 3,
                             strokeColor: primaryColor,
                           );
@@ -1558,7 +1593,7 @@ class _DashboardPageState extends State<DashboardPage>
                           final monthData = _monthlySummaries[spot.x.toInt()];
                           return LineTooltipItem(
                             '${DateFormat('MMM yyyy').format(monthData.month)}\n',
-                            const TextStyle(
+                            TextStyle(
                               color: textPrimary,
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
@@ -1566,7 +1601,7 @@ class _DashboardPageState extends State<DashboardPage>
                             children: [
                               TextSpan(
                                 text: currencyFormat.format(spot.y),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: primaryColor,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
@@ -1588,7 +1623,6 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   Widget _buildMonthProgressChart() {
-    // Sort summaries descending (newest first) for the dropdown
     final sortedSummaries = List<MonthlyTransactionSummary>.from(
       _monthlySummaries,
     )..sort((a, b) => b.month.compareTo(a.month));
@@ -1631,14 +1665,14 @@ class _DashboardPageState extends State<DashboardPage>
                         ),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.trending_up_rounded,
                         color: accentPurple,
                         size: 18,
                       ),
                     ),
                     const SizedBox(width: 10),
-                    const Text(
+                    Text(
                       'Monthly Progress',
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
@@ -1674,7 +1708,7 @@ class _DashboardPageState extends State<DashboardPage>
                     ),
                     underline: const SizedBox.shrink(),
                     isDense: true,
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.keyboard_arrow_down,
                       color: accentPurple,
                       size: 18,
@@ -1684,7 +1718,7 @@ class _DashboardPageState extends State<DashboardPage>
                         value: entry.key,
                         child: Text(
                           DateFormat('MMM yy').format(entry.value.month),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: accentPurple,
@@ -1704,7 +1738,6 @@ class _DashboardPageState extends State<DashboardPage>
               ],
             ),
             const SizedBox(height: 16),
-            // Current amount display with animation
             Center(
               child: Column(
                 children: [
@@ -1715,7 +1748,7 @@ class _DashboardPageState extends State<DashboardPage>
                     builder: (context, animatedAmount, child) {
                       return Text(
                         currencyFormat.format(animatedAmount),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w800,
                           color: textPrimary,
@@ -1736,7 +1769,6 @@ class _DashboardPageState extends State<DashboardPage>
               ),
             ),
             const SizedBox(height: 20),
-            // Progress towards Previous Month
             _buildProgressBar(
               label: previousMonth != null
                   ? 'vs ${DateFormat('MMM').format(previousMonth)}'
@@ -1749,7 +1781,6 @@ class _DashboardPageState extends State<DashboardPage>
               icon: Icons.calendar_month_rounded,
             ),
             const SizedBox(height: 16),
-            // Progress towards Target
             _buildProgressBar(
               label: 'vs Target',
               current: currentAmount,
@@ -1789,7 +1820,7 @@ class _DashboardPageState extends State<DashboardPage>
                 const SizedBox(width: 6),
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: textSecondary,
@@ -1824,7 +1855,6 @@ class _DashboardPageState extends State<DashboardPage>
           ],
         ),
         const SizedBox(height: 8),
-        // Animated Progress bar
         Stack(
           children: [
             Container(
@@ -1866,7 +1896,6 @@ class _DashboardPageState extends State<DashboardPage>
           ],
         ),
         const SizedBox(height: 8),
-        // Goal and remaining
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -1911,7 +1940,7 @@ class _DashboardPageState extends State<DashboardPage>
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
+                    gradient: LinearGradient(
                       colors: [primaryColor, accentColor],
                     ),
                     borderRadius: BorderRadius.circular(10),
@@ -1923,7 +1952,7 @@ class _DashboardPageState extends State<DashboardPage>
                   ),
                 ),
                 const SizedBox(width: 10),
-                const Text(
+                Text(
                   'Top Senders',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
@@ -1948,7 +1977,6 @@ class _DashboardPageState extends State<DashboardPage>
                 const Color(0xFF10B981),
               ];
 
-              // Staggered animation for each sender row
               final rowAnimation = CurvedAnimation(
                 parent: _staggerController,
                 curve: Interval(
@@ -2010,7 +2038,7 @@ class _DashboardPageState extends State<DashboardPage>
                                 Expanded(
                                   child: Text(
                                     data.key,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 13,
                                       color: textPrimary,
@@ -2023,7 +2051,7 @@ class _DashboardPageState extends State<DashboardPage>
                           ),
                           Text(
                             currencyFormat.format(data.value),
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: textPrimary,
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
@@ -2081,8 +2109,8 @@ class _DashboardPageState extends State<DashboardPage>
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [accentPurple, Color(0xFFB794F6)],
+                    gradient: LinearGradient(
+                      colors: [accentPurple, const Color(0xFFB794F6)],
                     ),
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -2093,7 +2121,7 @@ class _DashboardPageState extends State<DashboardPage>
                   ),
                 ),
                 const SizedBox(width: 10),
-                const Text(
+                Text(
                   'Monthly Receipts',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
@@ -2144,7 +2172,7 @@ class _DashboardPageState extends State<DashboardPage>
                     height: 40,
                     decoration: BoxDecoration(
                       gradient: isCurrentMonth
-                          ? const LinearGradient(
+                          ? LinearGradient(
                               colors: [primaryColor, primaryDark],
                             )
                           : LinearGradient(
@@ -2216,7 +2244,6 @@ class _DashboardPageState extends State<DashboardPage>
   }
 }
 
-/// A widget that animates when it scrolls into the viewport
 class _ScrollAnimatedComponent extends StatefulWidget {
   final Widget child;
   final ScrollController scrollController;
@@ -2254,10 +2281,8 @@ class _ScrollAnimatedComponentState extends State<_ScrollAnimatedComponent>
       curve: Curves.easeOutCubic,
     );
 
-    // Listen to scroll changes
     widget.scrollController.addListener(_checkVisibility);
 
-    // Check visibility after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkVisibility();
     });
@@ -2276,11 +2301,9 @@ class _ScrollAnimatedComponentState extends State<_ScrollAnimatedComponent>
     final RenderObject? renderObject = _key.currentContext?.findRenderObject();
     if (renderObject == null || renderObject is! RenderBox) return;
 
-    // Get the widget's position on screen
     final position = renderObject.localToGlobal(Offset.zero);
     final screenHeight = MediaQuery.of(context).size.height;
 
-    // Check if the widget is visible (with buffer for smoother animation trigger)
     final bool isVisible =
         position.dy < screenHeight + 50 &&
         position.dy + renderObject.size.height > -50;
