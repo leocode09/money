@@ -2,94 +2,100 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'app_colors.dart';
 import 'pages/dashboard_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  // Set system UI overlay style for immersive experience
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Color(0xFF0D0A0F),
-      systemNavigationBarIconBrightness: Brightness.light,
-    ),
-  );
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // Epic Ripple-inspired color constants
-  static const primaryColor = Color(0xFFE8956A);
-  static const bgColor = Color(0xFF0D0A0F);
-  static const cardColor = Color(0xFF1E1525);
-  static const textPrimary = Color(0xFFFFF8F0);
-  static const textSecondary = Color(0xFFCBB9A8);
-
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'M-Money Dashboard',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme:
-            ColorScheme.fromSeed(
-              seedColor: primaryColor,
-              brightness: Brightness.dark,
-            ).copyWith(
-              surface: bgColor,
-              primary: primaryColor,
-              secondary: const Color(0xFFFFCBA4),
-              onSurface: textPrimary,
-              onPrimary: bgColor,
-            ),
-        scaffoldBackgroundColor: bgColor,
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-          backgroundColor: Colors.transparent,
-          foregroundColor: textPrimary,
-          elevation: 0,
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeNotifier,
+      builder: (context, themeMode, child) {
+        final isDark = themeMode == ThemeMode.dark;
+        SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          systemNavigationBarColor:
+              isDark ? AppColors.dark.bg : AppColors.light.bg,
+          systemNavigationBarIconBrightness:
+              isDark ? Brightness.light : Brightness.dark,
+        ));
+
+        return MaterialApp(
+          title: 'M-Money Dashboard',
+          debugShowCheckedModeBanner: false,
+          themeMode: themeMode,
+          theme: _buildTheme(AppColors.light, Brightness.light),
+          darkTheme: _buildTheme(AppColors.dark, Brightness.dark),
+          home: const MyHomePage(),
+        );
+      },
+    );
+  }
+
+  static ThemeData _buildTheme(AppColors c, Brightness brightness) {
+    final isDark = brightness == Brightness.dark;
+    return ThemeData(
+      brightness: brightness,
+      extensions: [c],
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: c.primary,
+        brightness: brightness,
+      ).copyWith(
+        surface: c.bg,
+        primary: c.primary,
+        secondary: c.accent,
+        onSurface: c.textPrimary,
+        onPrimary: isDark ? c.bg : Colors.white,
+      ),
+      scaffoldBackgroundColor: c.bg,
+      useMaterial3: true,
+      appBarTheme: AppBarTheme(
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        foregroundColor: c.textPrimary,
+        elevation: 0,
+      ),
+      textTheme: TextTheme(
+        bodyLarge: TextStyle(color: c.textPrimary),
+        bodyMedium: TextStyle(color: c.textPrimary),
+        bodySmall: TextStyle(color: c.textSecondary),
+        headlineLarge: TextStyle(
+          color: c.textPrimary,
+          fontWeight: FontWeight.w800,
         ),
-        textTheme: const TextTheme(
-          bodyLarge: TextStyle(color: textPrimary),
-          bodyMedium: TextStyle(color: textPrimary),
-          bodySmall: TextStyle(color: textSecondary),
-          headlineLarge: TextStyle(
-            color: textPrimary,
-            fontWeight: FontWeight.w800,
-          ),
-          headlineMedium: TextStyle(
-            color: textPrimary,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: primaryColor,
-            foregroundColor: bgColor,
-            elevation: 8,
-            shadowColor: primaryColor.withValues(alpha: 0.4),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
-        ),
-        cardTheme: CardThemeData(
-          color: cardColor,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-        ),
-        progressIndicatorTheme: const ProgressIndicatorThemeData(
-          color: primaryColor,
+        headlineMedium: TextStyle(
+          color: c.textPrimary,
+          fontWeight: FontWeight.w700,
         ),
       ),
-      home: const MyHomePage(),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: c.primary,
+          foregroundColor: isDark ? c.bg : Colors.white,
+          elevation: isDark ? 8 : 4,
+          shadowColor: c.primary.withValues(alpha: isDark ? 0.4 : 0.3),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: c.card,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(color: c.primary),
     );
   }
 }
@@ -135,14 +141,12 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _getMessages() async {
     final messages = await _query.querySms(
       kinds: [SmsQueryKind.inbox],
-      address: 'M-Money', // Filter messages from M-Money
-      // Remove count parameter to fetch all messages
+      address: 'M-Money',
     );
     setState(() {
       _messages = messages;
     });
 
-    // Automatically navigate to dashboard when messages are loaded
     if (mounted && _messages.isNotEmpty) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
@@ -175,7 +179,6 @@ class _MyHomePageState extends State<MyHomePage> {
       );
     }
 
-    // This should not be reached as we navigate away in _getMessages
     return DashboardPage(messages: _messages);
   }
 
