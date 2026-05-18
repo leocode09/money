@@ -2,6 +2,10 @@
 
 A Flutter app that reads your M-Money SMS messages and turns them into a visual transaction dashboard.
 
+## License
+
+This project is open source under the [MIT License](LICENSE).
+
 ## How It Works
 
 ### 1. SMS Permission
