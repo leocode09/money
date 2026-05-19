@@ -44,13 +44,13 @@ class AppColors extends ThemeExtension<AppColors> {
     accentPurple: Color(0xFF9D7BEA),
     success: Color(0xFF5EEAD4),
     danger: Color(0xFFFF8A8A),
-    bg: Color(0xFF0D0A0F),
-    bgGradient1: Color(0xFF1A1020),
-    bgGradient2: Color(0xFF2A1830),
-    card: Color(0xFF1E1525),
-    cardBorder: Color(0xFF3D2D4A),
-    textPrimary: Color(0xFFFFF8F0),
-    textSecondary: Color(0xFFCBB9A8),
+    bg: Color(0xFF121014),
+    bgGradient1: Color(0xFF121014),
+    bgGradient2: Color(0xFF18161A),
+    card: Color(0xFF1C1A1F),
+    cardBorder: Color(0xFF2E2A33),
+    textPrimary: Color(0xFFF5F0EB),
+    textSecondary: Color(0xFF9A918A),
   );
 
   static const light = AppColors(

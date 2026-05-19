@@ -1,15 +1,28 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:intl/intl.dart';
 import '../app_colors.dart';
+import '../theme_decorations.dart';
 import '../models/transaction.dart';
+import '../services/auth_service.dart';
+import '../widgets/display_name_dialog.dart';
 
 class DashboardPage extends StatefulWidget {
   final List<SmsMessage> messages;
+  final List<MonthlyTransactionSummary>? firestoreSummaries;
+  final bool embeddedInShell;
+  final bool? shellIsPublic;
+  final ValueChanged<bool>? onPublicStateChanged;
 
-  const DashboardPage({super.key, required this.messages});
+  const DashboardPage({
+    super.key,
+    required this.messages,
+    this.firestoreSummaries,
+    this.embeddedInShell = false,
+    this.shellIsPublic,
+    this.onPublicStateChanged,
+  });
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -27,6 +40,11 @@ class _DashboardPageState extends State<DashboardPage>
   bool _showTargetLine = true;
 
   late Animation<double> _bgAnimation;
+
+  final AuthService _authService = AuthService();
+  bool _isPublic = false;
+  String _accountName = '';
+  bool _promptedForName = false;
 
   final currencyFormat = NumberFormat.currency(
     symbol: 'RWF ',
@@ -140,8 +158,9 @@ class _DashboardPageState extends State<DashboardPage>
       _monthlySummaries,
     )..sort((a, b) => b.month.compareTo(a.month));
 
-    if (_selectedMonthIndex < 0 || _selectedMonthIndex >= descendingSummaries.length) {
-       return {'target': 0.0, 'growthRate': 0.05, 'lastMonth': 0.0};
+    if (_selectedMonthIndex < 0 ||
+        _selectedMonthIndex >= descendingSummaries.length) {
+      return {'target': 0.0, 'growthRate': 0.05, 'lastMonth': 0.0};
     }
 
     final selectedDate = descendingSummaries[_selectedMonthIndex].month;
@@ -215,6 +234,21 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   @override
+  void didUpdateWidget(DashboardPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.shellIsPublic != null &&
+        widget.shellIsPublic != oldWidget.shellIsPublic) {
+      final next = widget.shellIsPublic!;
+      if (next != _isPublic) {
+        setState(() => _isPublic = next);
+      }
+      if (next && _monthlySummaries.isNotEmpty) {
+        _syncPublicSummaries().ignore();
+      }
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
     _scrollController = ScrollController();
@@ -238,6 +272,95 @@ class _DashboardPageState extends State<DashboardPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _staggerController.forward();
     });
+
+    _loadPublicState();
+    if (!widget.embeddedInShell) {
+      _loadAccountName();
+    } else if (widget.shellIsPublic != null) {
+      _isPublic = widget.shellIsPublic!;
+    }
+  }
+
+  Future<void> _loadAccountName() async {
+    var name = await _authService.getCachedDisplayName();
+    if (name.isEmpty) {
+      name = await _authService.refreshDisplayNameFromFirestore();
+    }
+    if (!mounted) return;
+    setState(() {
+      _accountName = name;
+    });
+    if (name.isEmpty && !_promptedForName) {
+      _promptedForName = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _editDisplayName();
+      });
+    }
+  }
+
+  String get _topBarSubtitle {
+    final privacy =
+        _isPublic ? 'Public aggregates' : (_accountName.isEmpty ? 'Private by default' : 'Private');
+    if (_accountName.isEmpty) {
+      return 'Tap to add your name · $privacy';
+    }
+    return '$_accountName · $privacy';
+  }
+
+  Future<void> _editDisplayName() async {
+    final name = await showDisplayNameDialog(
+      context,
+      initialName: _accountName,
+    );
+    if (name == null || !mounted) return;
+
+    final ok = await _authService.updateDisplayName(name);
+    if (!mounted) return;
+
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: dangerColor,
+          behavior: SnackBarBehavior.floating,
+          content: const Text(
+            'Could not save your name. Check your connection and try again.',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _accountName = name;
+    });
+  }
+
+  Future<void> _loadPublicState() async {
+    final isPublic = await _authService.isPublic();
+    if (!mounted) return;
+    setState(() {
+      _isPublic = isPublic;
+    });
+    widget.onPublicStateChanged?.call(isPublic);
+    if (isPublic && _monthlySummaries.isNotEmpty) {
+      _syncPublicSummaries().ignore();
+    }
+  }
+
+  List<WeeklyTransactionSummary>? _weeklySummariesForPublicSync() {
+    if (widget.firestoreSummaries != null) return null;
+    return WeeklyTransactionSummary.fromTransactions(_transactions);
+  }
+
+  Future<void> _syncPublicSummaries() {
+    return _authService.syncPublicSummaries(
+      _monthlySummaries,
+      weeklySummaries: _weeklySummariesForPublicSync(),
+    );
   }
 
   @override
@@ -249,6 +372,16 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   void _processTransactions() {
+    final firestoreSummaries = widget.firestoreSummaries;
+    if (firestoreSummaries != null) {
+      _monthlySummaries = List<MonthlyTransactionSummary>.from(
+        firestoreSummaries,
+      )..sort((a, b) => a.month.compareTo(b.month));
+      _transactions = _transactionsFromSummaries(_monthlySummaries);
+      _selectCurrentMonth();
+      return;
+    }
+
     _transactions = widget.messages
         .map(
           (msg) =>
@@ -277,24 +410,73 @@ class _DashboardPageState extends State<DashboardPage>
           .where((t) => t.type == 'RECEIVED')
           .fold<double>(0, (sum, t) => sum + t.amount);
 
-      final receivedCount = entry.value
-          .where((t) => t.type == 'RECEIVED')
-          .length;
+      final sentAmount = entry.value
+          .where((t) => t.type == 'SENT')
+          .fold<double>(0, (sum, t) => sum + t.amount);
 
       return MonthlyTransactionSummary(
         month: entry.key,
         totalReceived: receivedAmount,
-        totalSent: 0,
-        transactionCount: receivedCount,
+        totalSent: sentAmount,
+        transactionCount: entry.value.length,
       );
     }).toList();
 
     _monthlySummaries.sort((a, b) => a.month.compareTo(b.month));
 
+    _selectCurrentMonth();
+
+    if (_monthlySummaries.isNotEmpty) {
+      _authService.syncDashboardSummaries(_monthlySummaries).ignore();
+    }
+
+    if (_isPublic && _monthlySummaries.isNotEmpty) {
+      _syncPublicSummaries().ignore();
+    }
+  }
+
+  List<Transaction> _transactionsFromSummaries(
+    List<MonthlyTransactionSummary> summaries,
+  ) {
+    final transactions = <Transaction>[];
+    for (final summary in summaries) {
+      if (summary.totalReceived > 0) {
+        transactions.add(
+          Transaction(
+            amount: summary.totalReceived,
+            date: summary.month,
+            transactionId:
+                'firestore-received-${summary.month.toIso8601String()}',
+            counterparty: 'Monthly received',
+            type: 'RECEIVED',
+            fee: 0,
+            balance: 0,
+          ),
+        );
+      }
+      if (summary.totalSent > 0) {
+        transactions.add(
+          Transaction(
+            amount: summary.totalSent,
+            date: summary.month,
+            transactionId: 'firestore-sent-${summary.month.toIso8601String()}',
+            counterparty: 'Monthly sent',
+            type: 'SENT',
+            fee: 0,
+            balance: 0,
+          ),
+        );
+      }
+    }
+    transactions.sort((a, b) => b.date.compareTo(a.date));
+    return transactions;
+  }
+
+  void _selectCurrentMonth() {
+    final now = DateTime.now();
     final currentMonthIndex = _monthlySummaries.indexWhere(
       (summary) =>
-          summary.month.year == currentMonth.year &&
-          summary.month.month == currentMonth.month,
+          summary.month.year == now.year && summary.month.month == now.month,
     );
 
     if (currentMonthIndex >= 0) {
@@ -306,24 +488,22 @@ class _DashboardPageState extends State<DashboardPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: _transactions.isEmpty
-          ? const Center(child: Text('No transactions found'))
-          : Stack(
-              children: [
-                AnimatedBuilder(
-                  animation: _bgAnimation,
-                  builder: (context, child) {
-                    return Opacity(opacity: _bgAnimation.value, child: child);
-                  },
-                  child: _buildGradientBackground(),
-                ),
-                CustomScrollView(
-                  controller: _scrollController,
-                  slivers: [
-                    _buildAppBar(),
-                    SliverToBoxAdapter(
+    final body = _transactions.isEmpty
+        ? const Center(child: Text('No transactions found'))
+        : Stack(
+            children: [
+              AnimatedBuilder(
+                animation: _bgAnimation,
+                builder: (context, child) {
+                  return Opacity(opacity: _bgAnimation.value, child: child);
+                },
+                child: _buildGradientBackground(),
+              ),
+              CustomScrollView(
+                controller: _scrollController,
+                slivers: [
+                  if (!widget.embeddedInShell) _buildAppBar(),
+                  SliverToBoxAdapter(
                       child: Column(
                         children: [
                           const SizedBox(height: 4),
@@ -374,177 +554,131 @@ class _DashboardPageState extends State<DashboardPage>
                             delay: const Duration(milliseconds: 350),
                             child: _buildTopSendersCard(),
                           ),
-                          const SizedBox(height: 24),
+                          SizedBox(
+                            height: widget.embeddedInShell ? 88 : 24,
+                          ),
                         ],
                       ),
                     ),
                   ],
                 ),
               ],
-            ),
+            );
+
+    if (widget.embeddedInShell) {
+      return body;
+    }
+
+    return Scaffold(
+      backgroundColor: bgColor,
+      body: body,
     );
   }
 
   Widget _buildGradientBackground() {
-    return AnimatedBuilder(
-      animation: _staggerController,
-      builder: (context, child) {
-        final pulseValue = (_staggerController.value * 2 * 3.14159).clamp(
-          0.0,
-          6.28,
-        );
-        final pulseFactor = 1.0 + (0.05 * (1 + (pulseValue).abs() / 6.28));
-
-        return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [bgColor, bgGradient1, bgGradient2, bgGradient1, bgColor],
-              stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
-            ),
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                top: -100 + (20 * _staggerController.value),
-                right: -80 + (10 * _staggerController.value),
-                child: Transform.scale(
-                  scale: pulseFactor,
-                  child: Container(
-                    width: 350,
-                    height: 350,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          primaryColor.withValues(
-                            alpha: 0.25 * _staggerController.value,
-                          ),
-                          primaryColor.withValues(
-                            alpha: 0.1 * _staggerController.value,
-                          ),
-                          primaryColor.withValues(alpha: 0.0),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 300 - (15 * _staggerController.value),
-                left: -120 + (20 * _staggerController.value),
-                child: Transform.scale(
-                  scale: pulseFactor,
-                  child: Container(
-                    width: 300,
-                    height: 300,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          accentPurple.withValues(
-                            alpha: 0.2 * _staggerController.value,
-                          ),
-                          accentPurple.withValues(
-                            alpha: 0.05 * _staggerController.value,
-                          ),
-                          accentPurple.withValues(alpha: 0.0),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 100 + (10 * _staggerController.value),
-                right: -50 - (15 * _staggerController.value),
-                child: Transform.scale(
-                  scale: pulseFactor,
-                  child: Container(
-                    width: 400,
-                    height: 400,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          primaryLight.withValues(
-                            alpha: 0.15 * _staggerController.value,
-                          ),
-                          primaryColor.withValues(
-                            alpha: 0.05 * _staggerController.value,
-                          ),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+    return Container(decoration: AppDecorations.pageBackground(_c, context));
   }
 
   Widget _buildAppBar() {
     return SliverAppBar(
-      expandedHeight: 80,
+      expandedHeight: 112,
+      collapsedHeight: 96,
       floating: false,
       pinned: true,
       backgroundColor: Colors.transparent,
       foregroundColor: textPrimary,
       elevation: 0,
-      actions: [
-        IconButton(
-          onPressed: () {
-            themeNotifier.value = themeNotifier.value == ThemeMode.dark
-                ? ThemeMode.light
-                : ThemeMode.dark;
-          },
-          icon: Icon(
-            _isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-            color: textSecondary,
-            size: 22,
-          ),
-          tooltip: _isDark ? 'Switch to light theme' : 'Switch to dark theme',
-        ),
-        const SizedBox(width: 4),
-      ],
-      flexibleSpace: FlexibleSpaceBar(
-        background: ClipRRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    cardColor.withValues(alpha: 0.8),
-                    bgColor.withValues(alpha: 0.6),
+      automaticallyImplyLeading: false,
+      flexibleSpace: ClipRRect(
+        child: AppDecorations.wrapBlur(
+          context,
+          Container(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            decoration: AppDecorations.appBarShell(_c, context),
+            child: SafeArea(
+              bottom: false,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: AppDecorations.appBarCard(_c, context),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: AppDecorations.logoMark(_c, context),
+                      child: Icon(
+                        Icons.account_balance_wallet_rounded,
+                        color: AppDecorations.logoIconColor(_c, context),
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AppDecorations.titleText(
+                            context,
+                            text: 'Transaction Dashboard',
+                            shimmerColors: [textPrimary, accentColor],
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              color: textPrimary,
+                              fontSize: 21,
+                              letterSpacing: -0.8,
+                              height: 1.05,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          InkWell(
+                            onTap: _editDisplayName,
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      _topBarSubtitle,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: _accountName.isEmpty
+                                            ? primaryColor
+                                            : textSecondary,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.1,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    _accountName.isEmpty
+                                        ? Icons.edit_rounded
+                                        : Icons.drive_file_rename_outline_rounded,
+                                    size: 14,
+                                    color: _accountName.isEmpty
+                                        ? primaryColor
+                                        : textSecondary.withValues(alpha: 0.85),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
                 ),
               ),
             ),
           ),
         ),
-        title: ShaderMask(
-          shaderCallback: (bounds) => LinearGradient(
-            colors: [textPrimary, accentColor],
-          ).createShader(bounds),
-          child: const Text(
-            'Transaction Dashboard',
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              fontSize: 18,
-              letterSpacing: -0.3,
-            ),
-          ),
-        ),
-        titlePadding: const EdgeInsets.only(left: 16, bottom: 12),
       ),
     );
   }
@@ -552,48 +686,33 @@ class _DashboardPageState extends State<DashboardPage>
   Widget _buildHeroCard() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [primaryColor, primaryDark, Color(0xFFB85A3A)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          stops: const [0.0, 0.6, 1.0],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: primaryLight.withValues(alpha: 0.3),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: primaryColor.withValues(alpha: 0.4),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-            spreadRadius: -5,
-          ),
-        ],
+      decoration: AppDecorations.hero(
+        _c,
+        context,
+        gradientColors: [primaryColor, primaryDark, const Color(0xFFB85A3A)],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
         child: Stack(
           children: [
-            Positioned(
-              top: -40,
-              right: -30,
-              child: Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.white.withValues(alpha: 0.2),
-                      Colors.transparent,
-                    ],
+            if (!_isDark)
+              Positioned(
+                top: -40,
+                right: -30,
+                child: Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0.2),
+                        Colors.transparent,
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -693,29 +812,7 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   Widget _buildGlassCard({required Widget child, EdgeInsets? margin}) {
-    return Container(
-      margin: margin ?? const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: cardColor.withValues(alpha: _isDark ? 0.7 : 0.85),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cardBorder.withValues(alpha: 0.5), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: _isDark ? 0.2 : 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-            spreadRadius: -3,
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-          child: child,
-        ),
-      ),
-    );
+    return AppGlassCard(margin: margin, child: child);
   }
 
   Widget _buildMonthlySummaryCard() {
@@ -760,19 +857,7 @@ class _DashboardPageState extends State<DashboardPage>
                     horizontal: 10,
                     vertical: 6,
                   ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        accentColor.withValues(alpha: 0.15),
-                        primaryColor.withValues(alpha: 0.15),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: primaryColor.withValues(alpha: 0.3),
-                      width: 1,
-                    ),
-                  ),
+                  decoration: AppDecorations.dropdownChip(_c, context),
                   child: DropdownButton<int>(
                     value: _selectedMonthIndex,
                     underline: const SizedBox.shrink(),
@@ -836,25 +921,9 @@ class _DashboardPageState extends State<DashboardPage>
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: percentageChange >= 0
-                        ? [
-                            successColor.withValues(alpha: 0.12),
-                            successColor.withValues(alpha: 0.05),
-                          ]
-                        : [
-                            dangerColor.withValues(alpha: 0.12),
-                            dangerColor.withValues(alpha: 0.05),
-                          ],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: percentageChange >= 0
-                        ? successColor.withValues(alpha: 0.3)
-                        : dangerColor.withValues(alpha: 0.3),
-                    width: 1,
-                  ),
+                decoration: AppDecorations.tintedChip(
+                  context,
+                  percentageChange >= 0 ? successColor : dangerColor,
                 ),
                 child: Row(
                   children: [
@@ -890,10 +959,7 @@ class _DashboardPageState extends State<DashboardPage>
                     const SizedBox(width: 6),
                     Text(
                       'vs ${DateFormat('MMM').format(previousSummary.month)}',
-                      style: TextStyle(
-                        color: textSecondary,
-                        fontSize: 11,
-                      ),
+                      style: TextStyle(color: textSecondary, fontSize: 11),
                     ),
                   ],
                 ),
@@ -1028,45 +1094,30 @@ class _DashboardPageState extends State<DashboardPage>
   ) {
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: cardColor.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cardBorder.withValues(alpha: 0.4), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-            spreadRadius: -3,
-          ),
-        ],
-      ),
+      decoration: AppDecorations.metricSurface(_c, context),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-          child: Column(
+        child: AppDecorations.wrapBlur(
+          context,
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: gradientColors,
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: gradientColors.first.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                      spreadRadius: -2,
-                    ),
-                  ],
+                decoration: AppDecorations.iconBadge(
+                  _c,
+                  context,
+                  gradientColors,
                 ),
-                child: Icon(icon, color: Colors.white, size: 16),
+                child: Icon(
+                  icon,
+                  color: AppDecorations.iconBadgeForeground(
+                    _c,
+                    context,
+                    gradientColors,
+                  ),
+                  size: 16,
+                ),
               ),
               const SizedBox(height: 10),
               Text(
@@ -1109,83 +1160,74 @@ class _DashboardPageState extends State<DashboardPage>
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0D9488), Color(0xFF14B8A6), Color(0xFF5EEAD4)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          stops: [0.0, 0.5, 1.0],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.2),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: successColor.withValues(alpha: 0.4),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-            spreadRadius: -5,
-          ),
+      decoration: AppDecorations.accentHero(
+        _c,
+        context,
+        gradientColors: const [
+          Color(0xFF0D9488),
+          Color(0xFF14B8A6),
+          Color(0xFF5EEAD4),
         ],
+        borderTint: successColor,
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(32),
+        borderRadius: BorderRadius.circular(20),
         child: Stack(
           children: [
-            Positioned(
-              top: -60,
-              right: -50,
-              child: Container(
-                width: 180,
-                height: 180,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.white.withValues(alpha: 0.2),
-                      Colors.white.withValues(alpha: 0.05),
-                      Colors.transparent,
-                    ],
+            if (!_isDark) ...[
+              Positioned(
+                top: -60,
+                right: -50,
+                child: Container(
+                  width: 180,
+                  height: 180,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0.2),
+                        Colors.white.withValues(alpha: 0.05),
+                        Colors.transparent,
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            Positioned(
-              bottom: -40,
-              left: -30,
-              child: Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.white.withValues(alpha: 0.15),
-                      Colors.white.withValues(alpha: 0.03),
-                      Colors.transparent,
-                    ],
+              Positioned(
+                bottom: -40,
+                left: -30,
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0.15),
+                        Colors.white.withValues(alpha: 0.03),
+                        Colors.transparent,
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.white.withValues(alpha: 0.1),
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.1),
-                    ],
-                    stops: const [0.0, 0.3, 1.0],
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.1),
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.1),
+                      ],
+                      stops: const [0.0, 0.3, 1.0],
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -1414,16 +1456,19 @@ class _DashboardPageState extends State<DashboardPage>
                         horizontal: 10,
                         vertical: 6,
                       ),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [primaryColor, primaryDark],
-                        ),
-                        borderRadius: BorderRadius.circular(10),
+                      decoration: AppDecorations.iconBadge(
+                        _c,
+                        context,
+                        [primaryColor, primaryDark],
                       ),
                       child: Text(
                         '${_monthlySummaries.length} mo',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AppDecorations.iconBadgeForeground(
+                            _c,
+                            context,
+                            [primaryColor, primaryDark],
+                          ),
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                         ),
@@ -1552,30 +1597,22 @@ class _DashboardPageState extends State<DashboardPage>
                       curveSmoothness: 0.35,
                       preventCurveOverShooting: true,
                       color: primaryColor,
-                      barWidth: 4,
+                      barWidth: 2.4,
                       isStrokeCapRound: true,
                       dotData: FlDotData(
                         show: true,
                         getDotPainter: (spot, percent, barData, index) {
                           return FlDotCirclePainter(
-                            radius: 6,
+                            radius: 4,
                             color: _isDark ? Colors.white : cardColor,
-                            strokeWidth: 3,
+                            strokeWidth: 2,
                             strokeColor: primaryColor,
                           );
                         },
                       ),
                       belowBarData: BarAreaData(
                         show: true,
-                        gradient: LinearGradient(
-                          colors: [
-                            primaryColor.withValues(alpha: 0.3),
-                            primaryColor.withValues(alpha: 0.1),
-                            primaryColor.withValues(alpha: 0.0),
-                          ],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ),
+                        gradient: AppDecorations.chartAreaFill(primaryColor),
                       ),
                     ),
                   ],
@@ -1656,18 +1693,18 @@ class _DashboardPageState extends State<DashboardPage>
                   children: [
                     Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            accentPurple.withValues(alpha: 0.3),
-                            accentPurple.withValues(alpha: 0.1),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(10),
+                      decoration: AppDecorations.sectionIcon(
+                        _c,
+                        context,
+                        accentPurple,
                       ),
                       child: Icon(
                         Icons.trending_up_rounded,
-                        color: accentPurple,
+                        color: AppDecorations.sectionIconForeground(
+                          _c,
+                          context,
+                          accentPurple,
+                        ),
                         size: 18,
                       ),
                     ),
@@ -1688,19 +1725,7 @@ class _DashboardPageState extends State<DashboardPage>
                     horizontal: 10,
                     vertical: 6,
                   ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        accentPurple.withValues(alpha: 0.15),
-                        accentPurple.withValues(alpha: 0.08),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: accentPurple.withValues(alpha: 0.3),
-                      width: 1,
-                    ),
-                  ),
+                  decoration: AppDecorations.tintedChip(context, accentPurple),
                   child: DropdownButton<int>(
                     value: _selectedProgressMonthIndex.clamp(
                       0,
@@ -1876,19 +1901,7 @@ class _DashboardPageState extends State<DashboardPage>
                   widthFactor: animatedWidth,
                   child: Container(
                     height: 10,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [color, color.withValues(alpha: 0.7)],
-                      ),
-                      borderRadius: BorderRadius.circular(5),
-                      boxShadow: [
-                        BoxShadow(
-                          color: color.withValues(alpha: 0.4 * animatedWidth),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
+                    decoration: AppDecorations.progressFill(context, color),
                   ),
                 );
               },
@@ -1939,15 +1952,18 @@ class _DashboardPageState extends State<DashboardPage>
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [primaryColor, accentColor],
-                    ),
-                    borderRadius: BorderRadius.circular(10),
+                  decoration: AppDecorations.sectionIcon(
+                    _c,
+                    context,
+                    primaryColor,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.emoji_events_rounded,
-                    color: Colors.white,
+                    color: AppDecorations.sectionIconForeground(
+                      _c,
+                      context,
+                      primaryColor,
+                    ),
                     size: 18,
                   ),
                 ),
@@ -2011,23 +2027,30 @@ class _DashboardPageState extends State<DashboardPage>
                                 Container(
                                   width: 28,
                                   height: 28,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        gradientColors[index %
-                                            gradientColors.length],
-                                        gradientColors[index %
-                                                gradientColors.length]
-                                            .withValues(alpha: 0.7),
-                                      ],
-                                    ),
+                                  decoration: AppDecorations.iconBadge(
+                                    _c,
+                                    context,
+                                    [
+                                      gradientColors[index %
+                                          gradientColors.length],
+                                      gradientColors[index %
+                                              gradientColors.length]
+                                          .withValues(alpha: 0.7),
+                                    ],
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Center(
                                     child: Text(
                                       '${index + 1}',
-                                      style: const TextStyle(
-                                        color: Colors.white,
+                                      style: TextStyle(
+                                        color: AppDecorations.iconBadgeForeground(
+                                          _c,
+                                          context,
+                                          [
+                                            gradientColors[index %
+                                                gradientColors.length],
+                                          ],
+                                        ),
                                         fontWeight: FontWeight.bold,
                                         fontSize: 12,
                                       ),
@@ -2084,7 +2107,7 @@ class _DashboardPageState extends State<DashboardPage>
                   ),
                 ),
               );
-            }).toList(),
+            }),
           ],
         ),
       ),
@@ -2108,15 +2131,18 @@ class _DashboardPageState extends State<DashboardPage>
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [accentPurple, const Color(0xFFB794F6)],
-                    ),
-                    borderRadius: BorderRadius.circular(10),
+                  decoration: AppDecorations.sectionIcon(
+                    _c,
+                    context,
+                    accentPurple,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.receipt_long_rounded,
-                    color: Colors.white,
+                    color: AppDecorations.sectionIconForeground(
+                      _c,
+                      context,
+                      accentPurple,
+                    ),
                     size: 18,
                   ),
                 ),
@@ -2152,12 +2178,17 @@ class _DashboardPageState extends State<DashboardPage>
               return Container(
                 decoration: isCurrentMonth
                     ? BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            primaryColor.withValues(alpha: 0.08),
-                            primaryColor.withValues(alpha: 0.02),
-                          ],
-                        ),
+                        color: _isDark
+                            ? primaryColor.withValues(alpha: 0.08)
+                            : null,
+                        gradient: _isDark
+                            ? null
+                            : LinearGradient(
+                                colors: [
+                                  primaryColor.withValues(alpha: 0.08),
+                                  primaryColor.withValues(alpha: 0.02),
+                                ],
+                              ),
                       )
                     : null,
                 child: ListTile(
@@ -2170,19 +2201,21 @@ class _DashboardPageState extends State<DashboardPage>
                   leading: Container(
                     width: 40,
                     height: 40,
-                    decoration: BoxDecoration(
-                      gradient: isCurrentMonth
-                          ? LinearGradient(
-                              colors: [primaryColor, primaryDark],
-                            )
-                          : LinearGradient(
-                              colors: [
-                                textSecondary.withValues(alpha: 0.25),
-                                textSecondary.withValues(alpha: 0.15),
-                              ],
+                    decoration: isCurrentMonth
+                        ? AppDecorations.iconBadge(
+                            _c,
+                            context,
+                            [primaryColor, primaryDark],
+                          )
+                        : BoxDecoration(
+                            color: textSecondary.withValues(
+                              alpha: _isDark ? 0.12 : 0.18,
                             ),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: cardBorder.withValues(alpha: 0.35),
+                            ),
+                          ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -2248,13 +2281,11 @@ class _ScrollAnimatedComponent extends StatefulWidget {
   final Widget child;
   final ScrollController scrollController;
   final Duration delay;
-  final double slideOffset;
 
   const _ScrollAnimatedComponent({
     required this.child,
     required this.scrollController,
     this.delay = Duration.zero,
-    this.slideOffset = 30.0,
   });
 
   @override
@@ -2325,7 +2356,7 @@ class _ScrollAnimatedComponentState extends State<_ScrollAnimatedComponent>
       animation: _animation,
       builder: (context, child) {
         return Transform.translate(
-          offset: Offset(0, widget.slideOffset * (1 - _animation.value)),
+          offset: Offset(0, 30 * (1 - _animation.value)),
           child: Opacity(
             opacity: _animation.value.clamp(0.0, 1.0),
             child: Transform.scale(

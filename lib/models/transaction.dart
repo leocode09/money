@@ -139,6 +139,127 @@ class MonthlyTransactionSummary {
   });
 
   double get netAmount => totalReceived - totalSent;
-  
+
   String get formattedMonth => DateFormat('MMMM yyyy').format(month);
+
+  /// Privacy-safe serialization for Firestore public sharing.
+  /// Stores ONLY aggregate values - never raw transactions, counterparties, or IDs.
+  /// Month is stored as ISO8601 string normalized to the first day of the month at UTC.
+  Map<String, dynamic> toMap() {
+    final normalized = DateTime.utc(month.year, month.month, 1);
+    return {
+      'month': normalized.toIso8601String(),
+      'totalReceived': totalReceived,
+      'totalSent': totalSent,
+      'transactionCount': transactionCount,
+    };
+  }
+
+  static MonthlyTransactionSummary? fromMap(Map<String, dynamic> map) {
+    try {
+      final monthRaw = map['month'];
+      DateTime parsedMonth;
+      if (monthRaw is String) {
+        parsedMonth = DateTime.parse(monthRaw);
+      } else if (monthRaw is DateTime) {
+        parsedMonth = monthRaw;
+      } else {
+        return null;
+      }
+      return MonthlyTransactionSummary(
+        month: DateTime.utc(parsedMonth.year, parsedMonth.month, 1),
+        totalReceived: (map['totalReceived'] as num?)?.toDouble() ?? 0.0,
+        totalSent: (map['totalSent'] as num?)?.toDouble() ?? 0.0,
+        transactionCount: (map['transactionCount'] as num?)?.toInt() ?? 0,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+/// Privacy-safe weekly aggregates (Monday–Sunday, local calendar).
+class WeeklyTransactionSummary {
+  final DateTime weekStart;
+  final double totalReceived;
+  final double totalSent;
+  final int transactionCount;
+
+  WeeklyTransactionSummary({
+    required this.weekStart,
+    required this.totalReceived,
+    required this.totalSent,
+    required this.transactionCount,
+  });
+
+  static DateTime startOfWeek(DateTime date) {
+    final day = DateTime(date.year, date.month, date.day);
+    return day.subtract(Duration(days: day.weekday - DateTime.monday));
+  }
+
+  static List<WeeklyTransactionSummary> fromTransactions(
+    List<Transaction> transactions,
+  ) {
+    final weeklyData = <DateTime, List<Transaction>>{};
+    for (final transaction in transactions) {
+      final week = startOfWeek(transaction.date);
+      weeklyData.putIfAbsent(week, () => []).add(transaction);
+    }
+
+    final summaries = weeklyData.entries.map((entry) {
+      final receivedAmount = entry.value
+          .where((t) => t.isReceived)
+          .fold<double>(0, (total, t) => total + t.amount);
+      final sentAmount = entry.value
+          .where((t) => t.isSent)
+          .fold<double>(0, (total, t) => total + t.amount);
+
+      return WeeklyTransactionSummary(
+        weekStart: entry.key,
+        totalReceived: receivedAmount,
+        totalSent: sentAmount,
+        transactionCount: entry.value.length,
+      );
+    }).toList();
+
+    summaries.sort((a, b) => a.weekStart.compareTo(b.weekStart));
+    return summaries;
+  }
+
+  Map<String, dynamic> toMap() {
+    final normalized = DateTime(weekStart.year, weekStart.month, weekStart.day);
+    return {
+      'weekStart': normalized.toIso8601String(),
+      'totalReceived': totalReceived,
+      'totalSent': totalSent,
+      'transactionCount': transactionCount,
+    };
+  }
+
+  static WeeklyTransactionSummary? fromMap(Map<String, dynamic> map) {
+    try {
+      final weekRaw = map['weekStart'];
+      DateTime parsedWeek;
+      if (weekRaw is String) {
+        parsedWeek = DateTime.parse(weekRaw);
+      } else if (weekRaw is DateTime) {
+        parsedWeek = weekRaw;
+      } else {
+        return null;
+      }
+      final weekStart = DateTime(
+        parsedWeek.year,
+        parsedWeek.month,
+        parsedWeek.day,
+      );
+      return WeeklyTransactionSummary(
+        weekStart: weekStart,
+        totalReceived: (map['totalReceived'] as num?)?.toDouble() ?? 0.0,
+        totalSent: (map['totalSent'] as num?)?.toDouble() ?? 0.0,
+        transactionCount: (map['transactionCount'] as num?)?.toInt() ?? 0,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 }

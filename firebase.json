@@ -1,0 +1,36 @@
+{
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "money-dashboard-2026",
+          "appId": "1:635473596638:android:de5ea07ac177363aba724f",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "money-dashboard-2026",
+          "configurations": {
+            "android": "1:635473596638:android:de5ea07ac177363aba724f",
+            "web": "1:635473596638:web:4bb1180307d77271ba724f"
+          }
+        }
+      }
+    }
+  }
+}

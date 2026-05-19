@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'app_colors.dart';
-import 'pages/dashboard_page.dart';
+import 'firebase_options.dart';
+import 'models/transaction.dart';
+import 'pages/main_shell_page.dart';
+import 'pages/auth_page.dart';
+import 'pages/terms_page.dart';
+import 'services/auth_service.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MyApp());
 }
 
@@ -19,14 +27,20 @@ class MyApp extends StatelessWidget {
       valueListenable: themeNotifier,
       builder: (context, themeMode, child) {
         final isDark = themeMode == ThemeMode.dark;
-        SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-          systemNavigationBarColor:
-              isDark ? AppColors.dark.bg : AppColors.light.bg,
-          systemNavigationBarIconBrightness:
-              isDark ? Brightness.light : Brightness.dark,
-        ));
+        SystemChrome.setSystemUIOverlayStyle(
+          SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: isDark
+                ? Brightness.light
+                : Brightness.dark,
+            systemNavigationBarColor: isDark
+                ? AppColors.dark.bg
+                : AppColors.light.bg,
+            systemNavigationBarIconBrightness: isDark
+                ? Brightness.light
+                : Brightness.dark,
+          ),
+        );
 
         return MaterialApp(
           title: 'M-Money Dashboard',
@@ -34,7 +48,7 @@ class MyApp extends StatelessWidget {
           themeMode: themeMode,
           theme: _buildTheme(AppColors.light, Brightness.light),
           darkTheme: _buildTheme(AppColors.dark, Brightness.dark),
-          home: const MyHomePage(),
+          home: const AuthGate(),
         );
       },
     );
@@ -45,16 +59,17 @@ class MyApp extends StatelessWidget {
     return ThemeData(
       brightness: brightness,
       extensions: [c],
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: c.primary,
-        brightness: brightness,
-      ).copyWith(
-        surface: c.bg,
-        primary: c.primary,
-        secondary: c.accent,
-        onSurface: c.textPrimary,
-        onPrimary: isDark ? c.bg : Colors.white,
-      ),
+      colorScheme:
+          ColorScheme.fromSeed(
+            seedColor: c.primary,
+            brightness: brightness,
+          ).copyWith(
+            surface: c.bg,
+            primary: c.primary,
+            secondary: c.accent,
+            onSurface: c.textPrimary,
+            onPrimary: isDark ? c.bg : Colors.white,
+          ),
       scaffoldBackgroundColor: c.bg,
       useMaterial3: true,
       appBarTheme: AppBarTheme(
@@ -80,8 +95,8 @@ class MyApp extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: c.primary,
           foregroundColor: isDark ? c.bg : Colors.white,
-          elevation: isDark ? 8 : 4,
-          shadowColor: c.primary.withValues(alpha: isDark ? 0.4 : 0.3),
+          elevation: isDark ? 0 : 4,
+          shadowColor: c.primary.withValues(alpha: isDark ? 0.0 : 0.3),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -91,14 +106,71 @@ class MyApp extends StatelessWidget {
       cardTheme: CardThemeData(
         color: c.card,
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
       progressIndicatorTheme: ProgressIndicatorThemeData(color: c.primary),
+      navigationBarTheme: NavigationBarThemeData(
+        height: 64,
+        backgroundColor: c.card,
+        indicatorColor: c.primary.withValues(alpha: 0.18),
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return TextStyle(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: selected ? c.primary : c.textSecondary,
+          );
+        }),
+      ),
     );
   }
 }
+
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  Future<_AuthGateState> _resolveState() async {
+    final authService = AuthService();
+    final isLoggedIn = await authService.isLoggedIn();
+    if (!isLoggedIn) return _AuthGateState.signedOut;
+    final hasAcceptedTerms = await authService.hasAcceptedTerms();
+    return hasAcceptedTerms ? _AuthGateState.ready : _AuthGateState.needsTerms;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<_AuthGateState>(
+      future: _resolveState(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        switch (snapshot.data) {
+          case _AuthGateState.ready:
+            return const MyHomePage();
+          case _AuthGateState.needsTerms:
+            return TermsPage(
+              requireAcceptance: true,
+              onAccepted: () {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const MyHomePage()),
+                );
+              },
+            );
+          case _AuthGateState.signedOut:
+          case null:
+            return const AuthPage();
+        }
+      },
+    );
+  }
+}
+
+enum _AuthGateState { signedOut, needsTerms, ready }
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key});
@@ -115,6 +187,9 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
+    if (kIsWeb) {
+      return;
+    }
     _checkPermission();
   }
 
@@ -150,7 +225,7 @@ class _MyHomePageState extends State<MyHomePage> {
     if (mounted && _messages.isNotEmpty) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (context) => DashboardPage(messages: _messages),
+          builder: (context) => MainShellPage(messages: _messages),
         ),
       );
     }
@@ -158,6 +233,10 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    if (kIsWeb) {
+      return const WebDashboardPage();
+    }
+
     return Scaffold(
       body: _hasPermission
           ? _buildLoadingOrDashboard()
@@ -179,7 +258,7 @@ class _MyHomePageState extends State<MyHomePage> {
       );
     }
 
-    return DashboardPage(messages: _messages);
+    return MainShellPage(messages: _messages);
   }
 
   Widget _buildPermissionRequest() {
@@ -199,6 +278,30 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class WebDashboardPage extends StatelessWidget {
+  const WebDashboardPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<MonthlyTransactionSummary>>(
+      future: AuthService().getCurrentUserSummaries(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final summaries = snapshot.data ?? const <MonthlyTransactionSummary>[];
+        return MainShellPage(
+          messages: const [],
+          firestoreSummaries: summaries,
+        );
+      },
     );
   }
 }
