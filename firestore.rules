@@ -1,0 +1,15 @@
+rules_version = '2';
+
+// NOTE: This app performs its own phone + hashed-password check by reading and
+// writing the `users` collection directly and does NOT use Firebase Auth, so
+// that collection must be reachable by unauthenticated clients. As a result,
+// user documents (including the sha256 passwordHash) are world-readable and
+// world-writable. Everything else is denied by default. For real per-user
+// security, migrate to Firebase Auth and gate these rules on request.auth.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{phone} {
+      allow read, write: if true;
+    }
+  }
+}

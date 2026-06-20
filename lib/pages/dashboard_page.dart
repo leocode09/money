@@ -8,6 +8,30 @@ import '../models/transaction.dart';
 import '../services/auth_service.dart';
 import '../widgets/display_name_dialog.dart';
 
+/// Aggregation granularity for the Receipts section.
+enum _ReceiptPeriod { week, month, year }
+
+/// Ordering for the Receipts section.
+enum _ReceiptSort { dateDesc, dateAsc, amountDesc, amountAsc }
+
+/// One row in the Receipts list, normalized across week/month/year so the list
+/// rendering and sorting don't care which period produced it.
+class _ReceiptBucket {
+  const _ReceiptBucket({
+    required this.date,
+    required this.received,
+    required this.sent,
+    required this.count,
+    required this.isCurrent,
+  });
+
+  final DateTime date; // representative date (week start / month / year start)
+  final double received;
+  final double sent;
+  final int count;
+  final bool isCurrent; // contains "now" for the active period
+}
+
 class DashboardPage extends StatefulWidget {
   final List<SmsMessage> messages;
   final List<MonthlyTransactionSummary>? firestoreSummaries;
@@ -45,6 +69,22 @@ class _DashboardPageState extends State<DashboardPage>
   bool _isPublic = false;
   String _accountName = '';
   bool _promptedForName = false;
+
+  // Raw SMS-parsed transactions (mobile). Kept separate from [_transactions],
+  // which may be replaced with statement-backed aggregates after reconciliation.
+  List<Transaction> _smsTransactions = const <Transaction>[];
+  // Merged weekly aggregates (statement baseline + post-cutoff SMS), used for
+  // public sync so the weekly leaderboard stays statement-accurate.
+  List<WeeklyTransactionSummary>? _mergedWeekly;
+  // True once statement reconciliation has run (or is not applicable, e.g. the
+  // web/Firestore path), gating the initial public sync so SMS-only data is
+  // never pushed over statement-covered periods.
+  bool _statementReconcileDone = false;
+
+  // Receipts section controls.
+  _ReceiptPeriod _receiptPeriod = _ReceiptPeriod.month;
+  _ReceiptSort _receiptSort = _ReceiptSort.dateDesc;
+  bool _receiptGrouped = false;
 
   final currencyFormat = NumberFormat.currency(
     symbol: 'RWF ',
@@ -346,14 +386,17 @@ class _DashboardPageState extends State<DashboardPage>
       _isPublic = isPublic;
     });
     widget.onPublicStateChanged?.call(isPublic);
-    if (isPublic && _monthlySummaries.isNotEmpty) {
+    // Only push public data once reconciliation has settled what the live
+    // summaries are; otherwise reconcile (see below) performs the public sync.
+    if (isPublic && _monthlySummaries.isNotEmpty && _statementReconcileDone) {
       _syncPublicSummaries().ignore();
     }
   }
 
   List<WeeklyTransactionSummary>? _weeklySummariesForPublicSync() {
     if (widget.firestoreSummaries != null) return null;
-    return WeeklyTransactionSummary.fromTransactions(_transactions);
+    if (_mergedWeekly != null) return _mergedWeekly;
+    return WeeklyTransactionSummary.fromTransactions(_smsTransactions);
   }
 
   Future<void> _syncPublicSummaries() {
@@ -379,6 +422,7 @@ class _DashboardPageState extends State<DashboardPage>
       )..sort((a, b) => a.month.compareTo(b.month));
       _transactions = _transactionsFromSummaries(_monthlySummaries);
       _selectCurrentMonth();
+      _statementReconcileDone = true; // web path: nothing to reconcile.
       return;
     }
 
@@ -392,6 +436,7 @@ class _DashboardPageState extends State<DashboardPage>
         .toList();
 
     _transactions.sort((a, b) => b.date.compareTo(a.date));
+    _smsTransactions = _transactions;
 
     final monthlyData = <DateTime, List<Transaction>>{};
     for (var transaction in _transactions) {
@@ -426,13 +471,130 @@ class _DashboardPageState extends State<DashboardPage>
 
     _selectCurrentMonth();
 
-    if (_monthlySummaries.isNotEmpty) {
-      _authService.syncDashboardSummaries(_monthlySummaries).ignore();
+    // Reconcile against any official MoMo-statement baseline before syncing, so
+    // SMS can only ever extend statement-covered periods, never overwrite them.
+    _reconcileWithStatement().ignore();
+  }
+
+  /// Merges the official-statement baseline (if any) with SMS transactions that
+  /// occur strictly after the statement cutoff, then displays and persists the
+  /// result. Statement-covered periods are never overwritten by SMS. Idempotent:
+  /// the baseline is immutable, so re-running always yields baseline + new SMS.
+  Future<void> _reconcileWithStatement() async {
+    final backing = await _authService.getStatementBacking();
+    if (!mounted) return;
+
+    if (backing == null) {
+      // No statement backing: preserve the original SMS-only behaviour.
+      _statementReconcileDone = true;
+      if (_monthlySummaries.isNotEmpty) {
+        _authService.syncDashboardSummaries(_monthlySummaries).ignore();
+      }
+      if (_isPublic && _monthlySummaries.isNotEmpty) {
+        _syncPublicSummaries().ignore();
+      }
+      return;
     }
 
-    if (_isPublic && _monthlySummaries.isNotEmpty) {
-      _syncPublicSummaries().ignore();
+    final mergedMonthly = _mergeMonthlyWithStatement(
+      backing.monthly,
+      _smsTransactions,
+      backing.through,
+    );
+    final mergedWeekly = _mergeWeeklyWithStatement(
+      backing.weekly,
+      _smsTransactions,
+      backing.through,
+    );
+
+    setState(() {
+      _mergedWeekly = mergedWeekly;
+      _monthlySummaries = mergedMonthly;
+      _transactions = _transactionsFromSummaries(mergedMonthly);
+      _selectCurrentMonth();
+      _statementReconcileDone = true;
+    });
+
+    if (mergedMonthly.isNotEmpty) {
+      _authService.syncDashboardSummaries(mergedMonthly).ignore();
     }
+    if (_isPublic && mergedMonthly.isNotEmpty) {
+      _authService
+          .syncPublicSummaries(mergedMonthly, weeklySummaries: mergedWeekly)
+          .ignore();
+    }
+  }
+
+  /// baseline months + SMS transactions strictly after [cutoff], summed per
+  /// month. Months at/under the cutoff keep their authoritative baseline value.
+  List<MonthlyTransactionSummary> _mergeMonthlyWithStatement(
+    List<MonthlyTransactionSummary> baseline,
+    List<Transaction> smsTransactions,
+    DateTime cutoff,
+  ) {
+    final byMonth = <DateTime, MonthlyTransactionSummary>{
+      for (final s in baseline) DateTime(s.month.year, s.month.month): s,
+    };
+    final extra = <DateTime, List<Transaction>>{};
+    for (final t in smsTransactions) {
+      if (!t.date.isAfter(cutoff)) continue; // statement owns this period
+      final m = DateTime(t.date.year, t.date.month);
+      extra.putIfAbsent(m, () => []).add(t);
+    }
+
+    final months = <DateTime>{...byMonth.keys, ...extra.keys};
+    final result = months.map((m) {
+      final base = byMonth[m];
+      final tx = extra[m] ?? const <Transaction>[];
+      final extraReceived =
+          tx.where((t) => t.isReceived).fold<double>(0, (s, t) => s + t.amount);
+      final extraSent =
+          tx.where((t) => t.isSent).fold<double>(0, (s, t) => s + t.amount);
+      return MonthlyTransactionSummary(
+        month: m,
+        totalReceived: (base?.totalReceived ?? 0) + extraReceived,
+        totalSent: (base?.totalSent ?? 0) + extraSent,
+        transactionCount: (base?.transactionCount ?? 0) + tx.length,
+      );
+    }).toList()
+      ..sort((a, b) => a.month.compareTo(b.month));
+    return result;
+  }
+
+  /// Weekly analogue of [_mergeMonthlyWithStatement] (weeks start on Monday).
+  List<WeeklyTransactionSummary> _mergeWeeklyWithStatement(
+    List<WeeklyTransactionSummary> baseline,
+    List<Transaction> smsTransactions,
+    DateTime cutoff,
+  ) {
+    final byWeek = <DateTime, WeeklyTransactionSummary>{
+      for (final s in baseline)
+        DateTime(s.weekStart.year, s.weekStart.month, s.weekStart.day): s,
+    };
+    final extra = <DateTime, List<Transaction>>{};
+    for (final t in smsTransactions) {
+      if (!t.date.isAfter(cutoff)) continue;
+      final w = WeeklyTransactionSummary.startOfWeek(t.date);
+      extra.putIfAbsent(w, () => []).add(t);
+    }
+
+    final weeks = <DateTime>{...byWeek.keys, ...extra.keys};
+    final result = weeks.map((w) {
+      final base = byWeek[w];
+      final tx = extra[w] ?? const <Transaction>[];
+      final extraReceived =
+          tx.where((t) => t.isReceived).fold<double>(0, (s, t) => s + t.amount);
+      final extraSent =
+          tx.where((t) => t.isSent).fold<double>(0, (s, t) => s + t.amount);
+      return WeeklyTransactionSummary(
+        weekStart: w,
+        totalReceived: (base?.totalReceived ?? 0) + extraReceived,
+        totalSent: (base?.totalSent ?? 0) + extraSent,
+        transactionCount: (base?.transactionCount ?? 0) + tx.length,
+      );
+    }).toList()
+      ..sort((a, b) => a.weekStart.compareTo(b.weekStart));
+    return result;
   }
 
   List<Transaction> _transactionsFromSummaries(
@@ -522,7 +684,7 @@ class _DashboardPageState extends State<DashboardPage>
                           _ScrollAnimatedComponent(
                             scrollController: _scrollController,
                             delay: const Duration(milliseconds: 100),
-                            child: _buildMonthlyReceiptsList(),
+                            child: _buildReceiptsList(),
                           ),
                           const SizedBox(height: 12),
                           _ScrollAnimatedComponent(
@@ -2114,19 +2276,22 @@ class _DashboardPageState extends State<DashboardPage>
     );
   }
 
-  Widget _buildMonthlyReceiptsList() {
+  Widget _buildReceiptsList() {
     if (_monthlySummaries.isEmpty) return const SizedBox.shrink();
 
-    final sortedSummaries = List<MonthlyTransactionSummary>.from(
-      _monthlySummaries,
-    )..sort((b, a) => a.month.compareTo(b.month));
+    final buckets = _receiptBuckets();
+    final title = switch (_receiptPeriod) {
+      _ReceiptPeriod.week => 'Weekly Receipts',
+      _ReceiptPeriod.month => 'Monthly Receipts',
+      _ReceiptPeriod.year => 'Yearly Receipts',
+    };
 
     return _buildGlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
             child: Row(
               children: [
                 Container(
@@ -2147,131 +2312,448 @@ class _DashboardPageState extends State<DashboardPage>
                   ),
                 ),
                 const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: textPrimary,
+                      fontSize: 16,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                ),
+                _buildReceiptSortButton(),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+            child: Row(
+              children: [
+                _periodChip('Week', _ReceiptPeriod.week),
+                const SizedBox(width: 6),
+                _periodChip('Month', _ReceiptPeriod.month),
+                const SizedBox(width: 6),
+                _periodChip('Year', _ReceiptPeriod.year),
+                const Spacer(),
+                if (_receiptPeriod != _ReceiptPeriod.year) _buildGroupToggle(),
+              ],
+            ),
+          ),
+          if (buckets.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 18),
+              child: Text(
+                _receiptPeriod == _ReceiptPeriod.week
+                    ? "Weekly breakdown isn't available for this account yet."
+                    : 'No receipts to show.',
+                style: TextStyle(color: textSecondary, fontSize: 12),
+              ),
+            )
+          else
+            ..._receiptRows(buckets),
+          const SizedBox(height: 6),
+        ],
+      ),
+    );
+  }
+
+  // ---- Receipts data --------------------------------------------------------
+
+  /// Weekly aggregates for the Receipts list: prefer the statement-backed merged
+  /// weeks; otherwise derive from raw SMS transactions. Empty when neither is
+  /// available (e.g. the web/Firestore path, which only has monthly data).
+  List<WeeklyTransactionSummary> _displayWeekly() {
+    if (_mergedWeekly != null) return _mergedWeekly!;
+    if (_smsTransactions.isNotEmpty) {
+      return WeeklyTransactionSummary.fromTransactions(_smsTransactions);
+    }
+    return const <WeeklyTransactionSummary>[];
+  }
+
+  /// Builds normalized, sorted buckets for the selected period.
+  List<_ReceiptBucket> _receiptBuckets() {
+    final now = DateTime.now();
+    final buckets = <_ReceiptBucket>[];
+
+    switch (_receiptPeriod) {
+      case _ReceiptPeriod.month:
+        for (final s in _monthlySummaries) {
+          buckets.add(_ReceiptBucket(
+            date: DateTime(s.month.year, s.month.month),
+            received: s.totalReceived,
+            sent: s.totalSent,
+            count: s.transactionCount,
+            isCurrent: s.month.year == now.year && s.month.month == now.month,
+          ));
+        }
+        break;
+      case _ReceiptPeriod.year:
+        final byYear = <int, List<double>>{}; // year -> [received, sent, count]
+        for (final s in _monthlySummaries) {
+          final acc = byYear.putIfAbsent(s.month.year, () => [0.0, 0.0, 0.0]);
+          acc[0] += s.totalReceived;
+          acc[1] += s.totalSent;
+          acc[2] += s.transactionCount;
+        }
+        byYear.forEach((year, acc) {
+          buckets.add(_ReceiptBucket(
+            date: DateTime(year),
+            received: acc[0],
+            sent: acc[1],
+            count: acc[2].toInt(),
+            isCurrent: year == now.year,
+          ));
+        });
+        break;
+      case _ReceiptPeriod.week:
+        final weekNow = WeeklyTransactionSummary.startOfWeek(now);
+        for (final w in _displayWeekly()) {
+          buckets.add(_ReceiptBucket(
+            date: w.weekStart,
+            received: w.totalReceived,
+            sent: w.totalSent,
+            count: w.transactionCount,
+            isCurrent: w.weekStart.year == weekNow.year &&
+                w.weekStart.month == weekNow.month &&
+                w.weekStart.day == weekNow.day,
+          ));
+        }
+        break;
+    }
+
+    buckets.sort((a, b) {
+      switch (_receiptSort) {
+        case _ReceiptSort.dateDesc:
+          return b.date.compareTo(a.date);
+        case _ReceiptSort.dateAsc:
+          return a.date.compareTo(b.date);
+        case _ReceiptSort.amountDesc:
+          return b.received.compareTo(a.received);
+        case _ReceiptSort.amountAsc:
+          return a.received.compareTo(b.received);
+      }
+    });
+    return buckets;
+  }
+
+  // ---- Receipts rendering ---------------------------------------------------
+
+  List<Widget> _receiptRows(List<_ReceiptBucket> buckets) {
+    final divider = Divider(
+      height: 1,
+      indent: 14,
+      endIndent: 14,
+      color: cardBorder.withValues(alpha: 0.3),
+    );
+
+    // Flat list (no grouping, or year period which is already the coarsest).
+    if (!_receiptGrouped || _receiptPeriod == _ReceiptPeriod.year) {
+      final rows = <Widget>[];
+      for (var i = 0; i < buckets.length; i++) {
+        if (i > 0) rows.add(divider);
+        rows.add(_buildReceiptTile(buckets[i]));
+      }
+      return rows;
+    }
+
+    // Grouped: weeks -> by month, months -> by year. Insertion order follows the
+    // already-sorted buckets, so group order respects the active sort.
+    final groups = <String, List<_ReceiptBucket>>{};
+    String keyOf(_ReceiptBucket b) => _receiptPeriod == _ReceiptPeriod.week
+        ? DateFormat('yyyy-MM').format(b.date)
+        : '${b.date.year}';
+    for (final b in buckets) {
+      groups.putIfAbsent(keyOf(b), () => <_ReceiptBucket>[]).add(b);
+    }
+
+    final rows = <Widget>[];
+    groups.forEach((_, items) {
+      final subtotal = items.fold<double>(0, (s, b) => s + b.received);
+      final label = _receiptPeriod == _ReceiptPeriod.week
+          ? DateFormat('MMMM yyyy').format(items.first.date)
+          : '${items.first.date.year}';
+      rows.add(_buildReceiptGroupHeader(label, subtotal));
+      for (var i = 0; i < items.length; i++) {
+        rows.add(_buildReceiptTile(items[i]));
+        if (i < items.length - 1) rows.add(divider);
+      }
+    });
+    return rows;
+  }
+
+  Widget _buildReceiptGroupHeader(String label, double subtotal) {
+    return Container(
+      width: double.infinity,
+      color: textSecondary.withValues(alpha: _isDark ? 0.06 : 0.05),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.2,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            currencyFormat.format(subtotal),
+            style: TextStyle(
+              color: textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReceiptTile(_ReceiptBucket bucket) {
+    final isCurrent = bucket.isCurrent;
+    final top = switch (_receiptPeriod) {
+      _ReceiptPeriod.week => DateFormat('MMM').format(bucket.date),
+      _ReceiptPeriod.month => DateFormat('MMM').format(bucket.date),
+      _ReceiptPeriod.year => 'YR',
+    };
+    final bottom = switch (_receiptPeriod) {
+      _ReceiptPeriod.week => DateFormat('d').format(bucket.date),
+      _ReceiptPeriod.month => DateFormat('yy').format(bucket.date),
+      _ReceiptPeriod.year => DateFormat('yyyy').format(bucket.date),
+    };
+    final title = switch (_receiptPeriod) {
+      _ReceiptPeriod.week =>
+        '${DateFormat('MMM d').format(bucket.date)} – ${DateFormat('MMM d').format(bucket.date.add(const Duration(days: 6)))}',
+      _ReceiptPeriod.month => DateFormat('MMMM yyyy').format(bucket.date),
+      _ReceiptPeriod.year => DateFormat('yyyy').format(bucket.date),
+    };
+
+    return Container(
+      decoration: isCurrent
+          ? BoxDecoration(
+              color: _isDark ? primaryColor.withValues(alpha: 0.08) : null,
+              gradient: _isDark
+                  ? null
+                  : LinearGradient(
+                      colors: [
+                        primaryColor.withValues(alpha: 0.08),
+                        primaryColor.withValues(alpha: 0.02),
+                      ],
+                    ),
+            )
+          : null,
+      child: ListTile(
+        dense: true,
+        visualDensity: VisualDensity.compact,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        leading: Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: isCurrent
+              ? AppDecorations.iconBadge(_c, context, [primaryColor, primaryDark])
+              : BoxDecoration(
+                  color: textSecondary.withValues(alpha: _isDark ? 0.12 : 0.18),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: cardBorder.withValues(alpha: 0.35)),
+                ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                top,
+                style: TextStyle(
+                  color: isCurrent ? Colors.white : textSecondary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                bottom,
+                style: TextStyle(
+                  color: isCurrent
+                      ? Colors.white.withValues(alpha: 0.9)
+                      : textSecondary.withValues(alpha: 0.7),
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: isCurrent ? FontWeight.bold : FontWeight.w600,
+            fontSize: 13,
+            color: textPrimary,
+          ),
+        ),
+        subtitle: Text(
+          '${bucket.count} txn${bucket.count != 1 ? 's' : ''}',
+          style: TextStyle(
+            color: isCurrent ? primaryColor : textSecondary,
+            fontSize: 10,
+          ),
+        ),
+        trailing: Text(
+          currencyFormat.format(bucket.received),
+          style: TextStyle(
+            color: isCurrent ? primaryColor : textPrimary,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---- Receipts controls ----------------------------------------------------
+
+  Widget _periodChip(String label, _ReceiptPeriod value) {
+    final selected = _receiptPeriod == value;
+    return GestureDetector(
+      onTap: () => setState(() => _receiptPeriod = value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected
+              ? primaryColor.withValues(alpha: 0.15)
+              : textSecondary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selected
+                ? primaryColor.withValues(alpha: 0.4)
+                : cardBorder.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? primaryColor : textSecondary,
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGroupToggle() {
+    final on = _receiptGrouped;
+    return GestureDetector(
+      onTap: () => setState(() => _receiptGrouped = !on),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: on
+              ? accentPurple.withValues(alpha: 0.15)
+              : textSecondary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: on
+                ? accentPurple.withValues(alpha: 0.4)
+                : cardBorder.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              on ? Icons.layers_rounded : Icons.layers_clear_rounded,
+              size: 14,
+              color: on ? accentPurple : textSecondary,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'Group',
+              style: TextStyle(
+                color: on ? accentPurple : textSecondary,
+                fontSize: 12,
+                fontWeight: on ? FontWeight.w700 : FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReceiptSortButton() {
+    String labelFor(_ReceiptSort s) => switch (s) {
+      _ReceiptSort.dateDesc => 'Newest',
+      _ReceiptSort.dateAsc => 'Oldest',
+      _ReceiptSort.amountDesc => 'Highest',
+      _ReceiptSort.amountAsc => 'Lowest',
+    };
+
+    return PopupMenuButton<_ReceiptSort>(
+      initialValue: _receiptSort,
+      tooltip: 'Sort',
+      onSelected: (v) => setState(() => _receiptSort = v),
+      color: cardColor,
+      itemBuilder: (context) => [
+        for (final s in _ReceiptSort.values)
+          PopupMenuItem<_ReceiptSort>(
+            value: s,
+            child: Row(
+              children: [
+                Icon(
+                  switch (s) {
+                    _ReceiptSort.dateDesc => Icons.arrow_downward_rounded,
+                    _ReceiptSort.dateAsc => Icons.arrow_upward_rounded,
+                    _ReceiptSort.amountDesc => Icons.trending_down_rounded,
+                    _ReceiptSort.amountAsc => Icons.trending_up_rounded,
+                  },
+                  size: 16,
+                  color: _receiptSort == s ? primaryColor : textSecondary,
+                ),
+                const SizedBox(width: 10),
                 Text(
-                  'Monthly Receipts',
+                  switch (s) {
+                    _ReceiptSort.dateDesc => 'Newest first',
+                    _ReceiptSort.dateAsc => 'Oldest first',
+                    _ReceiptSort.amountDesc => 'Highest amount',
+                    _ReceiptSort.amountAsc => 'Lowest amount',
+                  },
                   style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: textPrimary,
-                    fontSize: 16,
-                    letterSpacing: -0.3,
+                    color: _receiptSort == s ? primaryColor : textPrimary,
+                    fontWeight:
+                        _receiptSort == s ? FontWeight.w700 : FontWeight.w500,
+                    fontSize: 13,
                   ),
                 ),
               ],
             ),
           ),
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: sortedSummaries.length,
-            separatorBuilder: (context, index) => Divider(
-              height: 1,
-              indent: 14,
-              endIndent: 14,
-              color: cardBorder.withValues(alpha: 0.3),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: textSecondary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: cardBorder.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.sort_rounded, size: 14, color: textSecondary),
+            const SizedBox(width: 4),
+            Text(
+              labelFor(_receiptSort),
+              style: TextStyle(
+                color: textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            itemBuilder: (context, index) {
-              final summary = sortedSummaries[index];
-              final isCurrentMonth =
-                  summary.month.year == DateTime.now().year &&
-                  summary.month.month == DateTime.now().month;
-
-              return Container(
-                decoration: isCurrentMonth
-                    ? BoxDecoration(
-                        color: _isDark
-                            ? primaryColor.withValues(alpha: 0.08)
-                            : null,
-                        gradient: _isDark
-                            ? null
-                            : LinearGradient(
-                                colors: [
-                                  primaryColor.withValues(alpha: 0.08),
-                                  primaryColor.withValues(alpha: 0.02),
-                                ],
-                              ),
-                      )
-                    : null,
-                child: ListTile(
-                  dense: true,
-                  visualDensity: VisualDensity.compact,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 4,
-                  ),
-                  leading: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: isCurrentMonth
-                        ? AppDecorations.iconBadge(
-                            _c,
-                            context,
-                            [primaryColor, primaryDark],
-                          )
-                        : BoxDecoration(
-                            color: textSecondary.withValues(
-                              alpha: _isDark ? 0.12 : 0.18,
-                            ),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: cardBorder.withValues(alpha: 0.35),
-                            ),
-                          ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          DateFormat('MMM').format(summary.month),
-                          style: TextStyle(
-                            color: isCurrentMonth
-                                ? Colors.white
-                                : textSecondary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          DateFormat('yy').format(summary.month),
-                          style: TextStyle(
-                            color: isCurrentMonth
-                                ? Colors.white.withValues(alpha: 0.9)
-                                : textSecondary.withValues(alpha: 0.7),
-                            fontSize: 9,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  title: Text(
-                    DateFormat('MMM yyyy').format(summary.month),
-                    style: TextStyle(
-                      fontWeight: isCurrentMonth
-                          ? FontWeight.bold
-                          : FontWeight.w600,
-                      fontSize: 13,
-                      color: textPrimary,
-                    ),
-                  ),
-                  subtitle: Text(
-                    '${summary.transactionCount} txn${summary.transactionCount != 1 ? 's' : ''}',
-                    style: TextStyle(
-                      color: isCurrentMonth ? primaryColor : textSecondary,
-                      fontSize: 10,
-                    ),
-                  ),
-                  trailing: Text(
-                    currencyFormat.format(summary.totalReceived),
-                    style: TextStyle(
-                      color: isCurrentMonth ? primaryColor : textPrimary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

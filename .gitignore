@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Secrets — service account keys / credentials (never commit)
+tools/update_firestore.json
+**/serviceAccount*.json
+*.serviceaccount.json
+node_modules/

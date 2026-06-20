@@ -1,0 +1,689 @@
+{
+  "phone": "+250798579079",
+  "source": "MTN MoMo statement 250798579079.pdf",
+  "momoStatementThrough": "2026-06-18T12:29:44",
+  "dashboardSummaries": [
+    {
+      "month": "2025-01-01T00:00:00.000Z",
+      "totalReceived": 657500.0,
+      "totalSent": 591497.0,
+      "transactionCount": 145
+    },
+    {
+      "month": "2025-02-01T00:00:00.000Z",
+      "totalReceived": 454500.0,
+      "totalSent": 487187.0,
+      "transactionCount": 144
+    },
+    {
+      "month": "2025-03-01T00:00:00.000Z",
+      "totalReceived": 190000.0,
+      "totalSent": 223255.0,
+      "transactionCount": 145
+    },
+    {
+      "month": "2025-04-01T00:00:00.000Z",
+      "totalReceived": 388300.0,
+      "totalSent": 384894.0,
+      "transactionCount": 120
+    },
+    {
+      "month": "2025-05-01T00:00:00.000Z",
+      "totalReceived": 999600.0,
+      "totalSent": 803137.0,
+      "transactionCount": 140
+    },
+    {
+      "month": "2025-06-01T00:00:00.000Z",
+      "totalReceived": 364100.0,
+      "totalSent": 548857.0,
+      "transactionCount": 172
+    },
+    {
+      "month": "2025-07-01T00:00:00.000Z",
+      "totalReceived": 241250.0,
+      "totalSent": 238704.0,
+      "transactionCount": 142
+    },
+    {
+      "month": "2025-08-01T00:00:00.000Z",
+      "totalReceived": 540507.0,
+      "totalSent": 534997.0,
+      "transactionCount": 164
+    },
+    {
+      "month": "2025-09-01T00:00:00.000Z",
+      "totalReceived": 394050.0,
+      "totalSent": 386966.0,
+      "transactionCount": 158
+    },
+    {
+      "month": "2025-10-01T00:00:00.000Z",
+      "totalReceived": 664000.0,
+      "totalSent": 655412.0,
+      "transactionCount": 194
+    },
+    {
+      "month": "2025-11-01T00:00:00.000Z",
+      "totalReceived": 1368000.0,
+      "totalSent": 1346232.0,
+      "transactionCount": 208
+    },
+    {
+      "month": "2025-12-01T00:00:00.000Z",
+      "totalReceived": 2170150.0,
+      "totalSent": 2133881.0,
+      "transactionCount": 238
+    },
+    {
+      "month": "2026-01-01T00:00:00.000Z",
+      "totalReceived": 2915402.0,
+      "totalSent": 2909142.0,
+      "transactionCount": 253
+    },
+    {
+      "month": "2026-02-01T00:00:00.000Z",
+      "totalReceived": 1112700.0,
+      "totalSent": 1089930.0,
+      "transactionCount": 162
+    },
+    {
+      "month": "2026-03-01T00:00:00.000Z",
+      "totalReceived": 1001515.0,
+      "totalSent": 1012917.0,
+      "transactionCount": 200
+    },
+    {
+      "month": "2026-04-01T00:00:00.000Z",
+      "totalReceived": 1430640.0,
+      "totalSent": 1409176.0,
+      "transactionCount": 190
+    },
+    {
+      "month": "2026-05-01T00:00:00.000Z",
+      "totalReceived": 792690.0,
+      "totalSent": 799285.0,
+      "transactionCount": 137
+    },
+    {
+      "month": "2026-06-01T00:00:00.000Z",
+      "totalReceived": 175400.0,
+      "totalSent": 156720.0,
+      "transactionCount": 76
+    }
+  ],
+  "publicSummaries": [
+    {
+      "month": "2025-01-01T00:00:00.000Z",
+      "totalReceived": 657500.0,
+      "totalSent": 591497.0,
+      "transactionCount": 145
+    },
+    {
+      "month": "2025-02-01T00:00:00.000Z",
+      "totalReceived": 454500.0,
+      "totalSent": 487187.0,
+      "transactionCount": 144
+    },
+    {
+      "month": "2025-03-01T00:00:00.000Z",
+      "totalReceived": 190000.0,
+      "totalSent": 223255.0,
+      "transactionCount": 145
+    },
+    {
+      "month": "2025-04-01T00:00:00.000Z",
+      "totalReceived": 388300.0,
+      "totalSent": 384894.0,
+      "transactionCount": 120
+    },
+    {
+      "month": "2025-05-01T00:00:00.000Z",
+      "totalReceived": 999600.0,
+      "totalSent": 803137.0,
+      "transactionCount": 140
+    },
+    {
+      "month": "2025-06-01T00:00:00.000Z",
+      "totalReceived": 364100.0,
+      "totalSent": 548857.0,
+      "transactionCount": 172
+    },
+    {
+      "month": "2025-07-01T00:00:00.000Z",
+      "totalReceived": 241250.0,
+      "totalSent": 238704.0,
+      "transactionCount": 142
+    },
+    {
+      "month": "2025-08-01T00:00:00.000Z",
+      "totalReceived": 540507.0,
+      "totalSent": 534997.0,
+      "transactionCount": 164
+    },
+    {
+      "month": "2025-09-01T00:00:00.000Z",
+      "totalReceived": 394050.0,
+      "totalSent": 386966.0,
+      "transactionCount": 158
+    },
+    {
+      "month": "2025-10-01T00:00:00.000Z",
+      "totalReceived": 664000.0,
+      "totalSent": 655412.0,
+      "transactionCount": 194
+    },
+    {
+      "month": "2025-11-01T00:00:00.000Z",
+      "totalReceived": 1368000.0,
+      "totalSent": 1346232.0,
+      "transactionCount": 208
+    },
+    {
+      "month": "2025-12-01T00:00:00.000Z",
+      "totalReceived": 2170150.0,
+      "totalSent": 2133881.0,
+      "transactionCount": 238
+    },
+    {
+      "month": "2026-01-01T00:00:00.000Z",
+      "totalReceived": 2915402.0,
+      "totalSent": 2909142.0,
+      "transactionCount": 253
+    },
+    {
+      "month": "2026-02-01T00:00:00.000Z",
+      "totalReceived": 1112700.0,
+      "totalSent": 1089930.0,
+      "transactionCount": 162
+    },
+    {
+      "month": "2026-03-01T00:00:00.000Z",
+      "totalReceived": 1001515.0,
+      "totalSent": 1012917.0,
+      "transactionCount": 200
+    },
+    {
+      "month": "2026-04-01T00:00:00.000Z",
+      "totalReceived": 1430640.0,
+      "totalSent": 1409176.0,
+      "transactionCount": 190
+    },
+    {
+      "month": "2026-05-01T00:00:00.000Z",
+      "totalReceived": 792690.0,
+      "totalSent": 799285.0,
+      "transactionCount": 137
+    },
+    {
+      "month": "2026-06-01T00:00:00.000Z",
+      "totalReceived": 175400.0,
+      "totalSent": 156720.0,
+      "transactionCount": 76
+    }
+  ],
+  "publicWeeklySummaries": [
+    {
+      "weekStart": "2024-12-30T00:00:00.000",
+      "totalReceived": 6000.0,
+      "totalSent": 7700.0,
+      "transactionCount": 9
+    },
+    {
+      "weekStart": "2025-01-06T00:00:00.000",
+      "totalReceived": 27000.0,
+      "totalSent": 35439.0,
+      "transactionCount": 29
+    },
+    {
+      "weekStart": "2025-01-13T00:00:00.000",
+      "totalReceived": 286000.0,
+      "totalSent": 281300.0,
+      "transactionCount": 38
+    },
+    {
+      "weekStart": "2025-01-20T00:00:00.000",
+      "totalReceived": 328500.0,
+      "totalSent": 188100.0,
+      "transactionCount": 37
+    },
+    {
+      "weekStart": "2025-01-27T00:00:00.000",
+      "totalReceived": 10000.0,
+      "totalSent": 148448.0,
+      "transactionCount": 45
+    },
+    {
+      "weekStart": "2025-02-03T00:00:00.000",
+      "totalReceived": 281500.0,
+      "totalSent": 278179.0,
+      "transactionCount": 43
+    },
+    {
+      "weekStart": "2025-02-10T00:00:00.000",
+      "totalReceived": 25900.0,
+      "totalSent": 29861.0,
+      "transactionCount": 34
+    },
+    {
+      "weekStart": "2025-02-17T00:00:00.000",
+      "totalReceived": 59100.0,
+      "totalSent": 56718.0,
+      "transactionCount": 27
+    },
+    {
+      "weekStart": "2025-02-24T00:00:00.000",
+      "totalReceived": 95500.0,
+      "totalSent": 80912.0,
+      "transactionCount": 41
+    },
+    {
+      "weekStart": "2025-03-03T00:00:00.000",
+      "totalReceived": 30500.0,
+      "totalSent": 38439.0,
+      "transactionCount": 24
+    },
+    {
+      "weekStart": "2025-03-10T00:00:00.000",
+      "totalReceived": 15500.0,
+      "totalSent": 22840.0,
+      "transactionCount": 33
+    },
+    {
+      "weekStart": "2025-03-17T00:00:00.000",
+      "totalReceived": 82000.0,
+      "totalSent": 80212.0,
+      "transactionCount": 31
+    },
+    {
+      "weekStart": "2025-03-24T00:00:00.000",
+      "totalReceived": 54500.0,
+      "totalSent": 52791.0,
+      "transactionCount": 41
+    },
+    {
+      "weekStart": "2025-03-31T00:00:00.000",
+      "totalReceived": 265300.0,
+      "totalSent": 229825.0,
+      "transactionCount": 39
+    },
+    {
+      "weekStart": "2025-04-07T00:00:00.000",
+      "totalReceived": 22500.0,
+      "totalSent": 49475.0,
+      "transactionCount": 27
+    },
+    {
+      "weekStart": "2025-04-14T00:00:00.000",
+      "totalReceived": 35500.0,
+      "totalSent": 36200.0,
+      "transactionCount": 17
+    },
+    {
+      "weekStart": "2025-04-21T00:00:00.000",
+      "totalReceived": 65000.0,
+      "totalSent": 59319.0,
+      "transactionCount": 31
+    },
+    {
+      "weekStart": "2025-04-28T00:00:00.000",
+      "totalReceived": 20000.0,
+      "totalSent": 30464.0,
+      "transactionCount": 24
+    },
+    {
+      "weekStart": "2025-05-05T00:00:00.000",
+      "totalReceived": 75300.0,
+      "totalSent": 75355.0,
+      "transactionCount": 39
+    },
+    {
+      "weekStart": "2025-05-12T00:00:00.000",
+      "totalReceived": 69300.0,
+      "totalSent": 66348.0,
+      "transactionCount": 27
+    },
+    {
+      "weekStart": "2025-05-19T00:00:00.000",
+      "totalReceived": 635000.0,
+      "totalSent": 423500.0,
+      "transactionCount": 22
+    },
+    {
+      "weekStart": "2025-05-26T00:00:00.000",
+      "totalReceived": 220000.0,
+      "totalSent": 240545.0,
+      "transactionCount": 39
+    },
+    {
+      "weekStart": "2025-06-02T00:00:00.000",
+      "totalReceived": 0.0,
+      "totalSent": 161570.0,
+      "transactionCount": 27
+    },
+    {
+      "weekStart": "2025-06-09T00:00:00.000",
+      "totalReceived": 121000.0,
+      "totalSent": 118855.0,
+      "transactionCount": 36
+    },
+    {
+      "weekStart": "2025-06-16T00:00:00.000",
+      "totalReceived": 112000.0,
+      "totalSent": 137742.0,
+      "transactionCount": 54
+    },
+    {
+      "weekStart": "2025-06-23T00:00:00.000",
+      "totalReceived": 111100.0,
+      "totalSent": 94190.0,
+      "transactionCount": 45
+    },
+    {
+      "weekStart": "2025-06-30T00:00:00.000",
+      "totalReceived": 41300.0,
+      "totalSent": 48145.0,
+      "transactionCount": 37
+    },
+    {
+      "weekStart": "2025-07-07T00:00:00.000",
+      "totalReceived": 50000.0,
+      "totalSent": 54970.0,
+      "transactionCount": 29
+    },
+    {
+      "weekStart": "2025-07-14T00:00:00.000",
+      "totalReceived": 29000.0,
+      "totalSent": 30189.0,
+      "transactionCount": 17
+    },
+    {
+      "weekStart": "2025-07-21T00:00:00.000",
+      "totalReceived": 70900.0,
+      "totalSent": 67100.0,
+      "transactionCount": 42
+    },
+    {
+      "weekStart": "2025-07-28T00:00:00.000",
+      "totalReceived": 69050.0,
+      "totalSent": 69900.0,
+      "transactionCount": 32
+    },
+    {
+      "weekStart": "2025-08-04T00:00:00.000",
+      "totalReceived": 162967.0,
+      "totalSent": 103325.0,
+      "transactionCount": 31
+    },
+    {
+      "weekStart": "2025-08-11T00:00:00.000",
+      "totalReceived": 271640.0,
+      "totalSent": 315042.0,
+      "transactionCount": 56
+    },
+    {
+      "weekStart": "2025-08-18T00:00:00.000",
+      "totalReceived": 20900.0,
+      "totalSent": 35000.0,
+      "transactionCount": 25
+    },
+    {
+      "weekStart": "2025-08-25T00:00:00.000",
+      "totalReceived": 66000.0,
+      "totalSent": 64530.0,
+      "transactionCount": 44
+    },
+    {
+      "weekStart": "2025-09-01T00:00:00.000",
+      "totalReceived": 67850.0,
+      "totalSent": 62715.0,
+      "transactionCount": 42
+    },
+    {
+      "weekStart": "2025-09-08T00:00:00.000",
+      "totalReceived": 73700.0,
+      "totalSent": 67660.0,
+      "transactionCount": 33
+    },
+    {
+      "weekStart": "2025-09-15T00:00:00.000",
+      "totalReceived": 125600.0,
+      "totalSent": 123691.0,
+      "transactionCount": 47
+    },
+    {
+      "weekStart": "2025-09-22T00:00:00.000",
+      "totalReceived": 116900.0,
+      "totalSent": 97700.0,
+      "transactionCount": 21
+    },
+    {
+      "weekStart": "2025-09-29T00:00:00.000",
+      "totalReceived": 19500.0,
+      "totalSent": 44650.0,
+      "transactionCount": 27
+    },
+    {
+      "weekStart": "2025-10-06T00:00:00.000",
+      "totalReceived": 442600.0,
+      "totalSent": 435130.0,
+      "transactionCount": 77
+    },
+    {
+      "weekStart": "2025-10-13T00:00:00.000",
+      "totalReceived": 109200.0,
+      "totalSent": 110800.0,
+      "transactionCount": 37
+    },
+    {
+      "weekStart": "2025-10-20T00:00:00.000",
+      "totalReceived": 76200.0,
+      "totalSent": 62150.0,
+      "transactionCount": 34
+    },
+    {
+      "weekStart": "2025-10-27T00:00:00.000",
+      "totalReceived": 26500.0,
+      "totalSent": 37882.0,
+      "transactionCount": 34
+    },
+    {
+      "weekStart": "2025-11-03T00:00:00.000",
+      "totalReceived": 24000.0,
+      "totalSent": 23350.0,
+      "transactionCount": 24
+    },
+    {
+      "weekStart": "2025-11-10T00:00:00.000",
+      "totalReceived": 753000.0,
+      "totalSent": 702487.0,
+      "transactionCount": 84
+    },
+    {
+      "weekStart": "2025-11-17T00:00:00.000",
+      "totalReceived": 226200.0,
+      "totalSent": 258995.0,
+      "transactionCount": 45
+    },
+    {
+      "weekStart": "2025-11-24T00:00:00.000",
+      "totalReceived": 364800.0,
+      "totalSent": 361400.0,
+      "transactionCount": 55
+    },
+    {
+      "weekStart": "2025-12-01T00:00:00.000",
+      "totalReceived": 103900.0,
+      "totalSent": 107750.0,
+      "transactionCount": 40
+    },
+    {
+      "weekStart": "2025-12-08T00:00:00.000",
+      "totalReceived": 213750.0,
+      "totalSent": 210300.0,
+      "transactionCount": 56
+    },
+    {
+      "weekStart": "2025-12-15T00:00:00.000",
+      "totalReceived": 1555500.0,
+      "totalSent": 1321281.0,
+      "transactionCount": 77
+    },
+    {
+      "weekStart": "2025-12-22T00:00:00.000",
+      "totalReceived": 45000.0,
+      "totalSent": 258200.0,
+      "transactionCount": 44
+    },
+    {
+      "weekStart": "2025-12-29T00:00:00.000",
+      "totalReceived": 582000.0,
+      "totalSent": 573075.0,
+      "transactionCount": 54
+    },
+    {
+      "weekStart": "2026-01-05T00:00:00.000",
+      "totalReceived": 763800.0,
+      "totalSent": 739640.0,
+      "transactionCount": 59
+    },
+    {
+      "weekStart": "2026-01-12T00:00:00.000",
+      "totalReceived": 617002.0,
+      "totalSent": 645350.0,
+      "transactionCount": 78
+    },
+    {
+      "weekStart": "2026-01-19T00:00:00.000",
+      "totalReceived": 64600.0,
+      "totalSent": 63950.0,
+      "transactionCount": 25
+    },
+    {
+      "weekStart": "2026-01-26T00:00:00.000",
+      "totalReceived": 1147000.0,
+      "totalSent": 1138477.0,
+      "transactionCount": 63
+    },
+    {
+      "weekStart": "2026-02-02T00:00:00.000",
+      "totalReceived": 210000.0,
+      "totalSent": 207650.0,
+      "transactionCount": 20
+    },
+    {
+      "weekStart": "2026-02-09T00:00:00.000",
+      "totalReceived": 72000.0,
+      "totalSent": 73260.0,
+      "transactionCount": 29
+    },
+    {
+      "weekStart": "2026-02-16T00:00:00.000",
+      "totalReceived": 406200.0,
+      "totalSent": 390170.0,
+      "transactionCount": 52
+    },
+    {
+      "weekStart": "2026-02-23T00:00:00.000",
+      "totalReceived": 417500.0,
+      "totalSent": 414250.0,
+      "transactionCount": 64
+    },
+    {
+      "weekStart": "2026-03-02T00:00:00.000",
+      "totalReceived": 126700.0,
+      "totalSent": 134800.0,
+      "transactionCount": 49
+    },
+    {
+      "weekStart": "2026-03-09T00:00:00.000",
+      "totalReceived": 152340.0,
+      "totalSent": 150626.0,
+      "transactionCount": 41
+    },
+    {
+      "weekStart": "2026-03-16T00:00:00.000",
+      "totalReceived": 376000.0,
+      "totalSent": 373841.0,
+      "transactionCount": 63
+    },
+    {
+      "weekStart": "2026-03-23T00:00:00.000",
+      "totalReceived": 318300.0,
+      "totalSent": 311750.0,
+      "transactionCount": 22
+    },
+    {
+      "weekStart": "2026-03-30T00:00:00.000",
+      "totalReceived": 44825.0,
+      "totalSent": 47568.0,
+      "transactionCount": 43
+    },
+    {
+      "weekStart": "2026-04-06T00:00:00.000",
+      "totalReceived": 319600.0,
+      "totalSent": 265950.0,
+      "transactionCount": 53
+    },
+    {
+      "weekStart": "2026-04-13T00:00:00.000",
+      "totalReceived": 418040.0,
+      "totalSent": 489500.0,
+      "transactionCount": 30
+    },
+    {
+      "weekStart": "2026-04-20T00:00:00.000",
+      "totalReceived": 92925.0,
+      "totalSent": 89700.0,
+      "transactionCount": 31
+    },
+    {
+      "weekStart": "2026-04-27T00:00:00.000",
+      "totalReceived": 646100.0,
+      "totalSent": 627658.0,
+      "transactionCount": 67
+    },
+    {
+      "weekStart": "2026-05-04T00:00:00.000",
+      "totalReceived": 221165.0,
+      "totalSent": 223154.0,
+      "transactionCount": 50
+    },
+    {
+      "weekStart": "2026-05-11T00:00:00.000",
+      "totalReceived": 103150.0,
+      "totalSent": 101831.0,
+      "transactionCount": 16
+    },
+    {
+      "weekStart": "2026-05-18T00:00:00.000",
+      "totalReceived": 105200.0,
+      "totalSent": 75700.0,
+      "transactionCount": 19
+    },
+    {
+      "weekStart": "2026-05-25T00:00:00.000",
+      "totalReceived": 300500.0,
+      "totalSent": 318900.0,
+      "transactionCount": 35
+    },
+    {
+      "weekStart": "2026-06-01T00:00:00.000",
+      "totalReceived": 32100.0,
+      "totalSent": 22100.0,
+      "transactionCount": 18
+    },
+    {
+      "weekStart": "2026-06-08T00:00:00.000",
+      "totalReceived": 117000.0,
+      "totalSent": 119000.0,
+      "transactionCount": 45
+    },
+    {
+      "weekStart": "2026-06-15T00:00:00.000",
+      "totalReceived": 26300.0,
+      "totalSent": 15620.0,
+      "transactionCount": 13
+    }
+  ]
+}

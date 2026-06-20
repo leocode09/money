@@ -511,6 +511,46 @@ class AuthService {
     }
   }
 
+  /// Loads the immutable MoMo-statement baseline for the signed-in user, if the
+  /// account has been backed by an official statement import. Returns null when
+  /// there is no statement backing (the app then falls back to SMS-only sync).
+  ///
+  /// The baseline is never modified by the app; the dashboard recomputes the
+  /// live summaries as (baseline + SMS strictly after [StatementBacking.through]),
+  /// so statement-covered periods are never overwritten by SMS.
+  Future<StatementBacking?> getStatementBacking() async {
+    final phone = await getCurrentUserPhone();
+    if (phone == null) return null;
+    try {
+      final snap = await _db
+          .collection('users')
+          .doc(phone)
+          .get()
+          .timeout(_firestoreTimeout);
+      final data = snap.data();
+      if (data == null) return null;
+
+      final throughRaw = data['momoStatementThrough'];
+      DateTime? through;
+      if (throughRaw is String) {
+        through = DateTime.tryParse(throughRaw);
+      } else if (throughRaw is Timestamp) {
+        through = throughRaw.toDate();
+      }
+      if (through == null) return null;
+
+      return StatementBacking(
+        through: through,
+        monthly: _summariesFromRaw(data['momoStatementSummaries']),
+        weekly: _weeklySummariesFromRaw(data['momoStatementWeekly']),
+      );
+    } on FirebaseException {
+      return null;
+    } on TimeoutException {
+      return null;
+    }
+  }
+
   /// Returns the signed-in user's saved monthly summaries for web dashboard use.
   Future<List<MonthlyTransactionSummary>> getCurrentUserSummaries() async {
     final phone = await getCurrentUserPhone();
@@ -587,6 +627,21 @@ class LeaderboardEntry {
     if (n != null && n.isNotEmpty) return n;
     return AuthService.maskPhoneForPrivacy(phone);
   }
+}
+
+/// Immutable official-statement baseline for an account, plus the coverage
+/// cutoff. The dashboard merges this with SMS transactions that occur strictly
+/// after [through] so statement-covered periods are never overwritten by SMS.
+class StatementBacking {
+  const StatementBacking({
+    required this.through,
+    required this.monthly,
+    required this.weekly,
+  });
+
+  final DateTime through;
+  final List<MonthlyTransactionSummary> monthly;
+  final List<WeeklyTransactionSummary> weekly;
 }
 
 /// Public compare list entry: [chipLabel] prefers [name], else a masked phone.
