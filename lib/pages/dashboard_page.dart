@@ -8,14 +8,16 @@ import '../models/transaction.dart';
 import '../services/auth_service.dart';
 import '../widgets/display_name_dialog.dart';
 
-/// Aggregation granularity for the Receipts section.
-enum _ReceiptPeriod { week, month, year }
+/// Aggregation granularity for Home list sections (Receipts, Senders, Insights).
+enum _ListPeriod { week, month, year }
 
-/// Ordering for the Receipts section.
-enum _ReceiptSort { dateDesc, dateAsc, amountDesc, amountAsc }
+/// Ordering for Home list sections.
+enum _ListSort { dateDesc, dateAsc, amountDesc, amountAsc }
 
-/// One row in the Receipts list, normalized across week/month/year so the list
-/// rendering and sorting don't care which period produced it.
+const int _kListPreviewCount = 5;
+
+/// One row in the Receipts / Insights lists, normalized across week/month/year
+/// so rendering and sorting don't care which period produced it.
 class _ReceiptBucket {
   const _ReceiptBucket({
     required this.date,
@@ -30,6 +32,39 @@ class _ReceiptBucket {
   final double sent;
   final int count;
   final bool isCurrent; // contains "now" for the active period
+}
+
+/// One ranked sender in the Top Senders list.
+class _SenderEntry {
+  const _SenderEntry({
+    required this.name,
+    required this.amount,
+    required this.lastDate,
+  });
+
+  final String name;
+  final double amount;
+  final DateTime lastDate;
+}
+
+class _InsightSummary {
+  const _InsightSummary({
+    required this.grain,
+    required this.bestAmount,
+    required this.bestSub,
+    required this.projected,
+    required this.average,
+    required this.active,
+    required this.total,
+  });
+
+  final String grain;
+  final double? bestAmount;
+  final String? bestSub;
+  final double projected;
+  final double average;
+  final int active;
+  final int total;
 }
 
 class DashboardPage extends StatefulWidget {
@@ -82,9 +117,20 @@ class _DashboardPageState extends State<DashboardPage>
   bool _statementReconcileDone = false;
 
   // Receipts section controls.
-  _ReceiptPeriod _receiptPeriod = _ReceiptPeriod.month;
-  _ReceiptSort _receiptSort = _ReceiptSort.dateDesc;
+  _ListPeriod _receiptPeriod = _ListPeriod.month;
+  _ListSort _receiptSort = _ListSort.dateDesc;
   bool _receiptGrouped = false;
+  bool _receiptExpanded = false;
+
+  // Top Senders section controls.
+  _ListPeriod _sendersPeriod = _ListPeriod.month;
+  _ListSort _sendersSort = _ListSort.amountDesc;
+  bool _sendersExpanded = false;
+
+  // Income Insights section controls.
+  _ListPeriod _insightsPeriod = _ListPeriod.month;
+  _ListSort _insightsSort = _ListSort.dateDesc;
+  bool _insightsExpanded = false;
 
   final currencyFormat = NumberFormat.currency(
     symbol: 'RWF ',
@@ -120,6 +166,18 @@ class _DashboardPageState extends State<DashboardPage>
   double get totalFees =>
       _transactions.fold<double>(0, (sum, t) => sum + t.fee);
 
+  double get totalSentAmount => _transactions
+      .where((t) => t.isSent)
+      .fold<double>(0, (sum, t) => sum + t.amount);
+
+  int get _activeReceivedMonths =>
+      _monthlySummaries.where((s) => s.totalReceived > 0).length;
+
+  double get monthlyAverageReceived => _activeReceivedMonths == 0
+      ? 0
+      : _monthlySummaries.fold<double>(0, (s, m) => s + m.totalReceived) /
+          _activeReceivedMonths;
+
   double get highestTransaction => _transactions.isEmpty
       ? 0
       : _transactions
@@ -127,18 +185,52 @@ class _DashboardPageState extends State<DashboardPage>
             .map((t) => t.amount)
             .reduce((a, b) => a > b ? a : b);
 
-  Map<String, double> get counterpartyTotals {
-    final totals = <String, double>{};
-    for (var tx in _transactions.where((t) => t.isReceived)) {
-      totals[tx.counterparty] = (totals[tx.counterparty] ?? 0) + tx.amount;
+  DateTime _periodWindowStart(_ListPeriod period) {
+    final now = DateTime.now();
+    switch (period) {
+      case _ListPeriod.week:
+        return WeeklyTransactionSummary.startOfWeek(now);
+      case _ListPeriod.month:
+        return DateTime(now.year, now.month);
+      case _ListPeriod.year:
+        return DateTime(now.year);
     }
-    return totals;
   }
 
-  List<MapEntry<String, double>> get topCounterparties {
-    final totals = counterpartyTotals.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    return totals.take(5).toList();
+  List<_SenderEntry> _senderEntries() {
+    final start = _periodWindowStart(_sendersPeriod);
+    final amounts = <String, double>{};
+    final lastDates = <String, DateTime>{};
+    for (final tx in _smsTransactions) {
+      if (!tx.isReceived || tx.date.isBefore(start)) continue;
+      amounts[tx.counterparty] = (amounts[tx.counterparty] ?? 0) + tx.amount;
+      final prev = lastDates[tx.counterparty];
+      if (prev == null || tx.date.isAfter(prev)) {
+        lastDates[tx.counterparty] = tx.date;
+      }
+    }
+    final entries = amounts.entries
+        .map(
+          (e) => _SenderEntry(
+            name: e.key,
+            amount: e.value,
+            lastDate: lastDates[e.key]!,
+          ),
+        )
+        .toList();
+    entries.sort((a, b) {
+      switch (_sendersSort) {
+        case _ListSort.dateDesc:
+          return b.lastDate.compareTo(a.lastDate);
+        case _ListSort.dateAsc:
+          return a.lastDate.compareTo(b.lastDate);
+        case _ListSort.amountDesc:
+          return b.amount.compareTo(a.amount);
+        case _ListSort.amountAsc:
+          return a.amount.compareTo(b.amount);
+      }
+    });
+    return entries;
   }
 
   Map<String, dynamic> _calculateTargetForDate(DateTime referenceDate) {
@@ -286,6 +378,22 @@ class _DashboardPageState extends State<DashboardPage>
         _syncPublicSummaries().ignore();
       }
     }
+
+    // A new (or refreshed) batch of SMS arrived in realtime: re-parse so the
+    // dashboard, and any Firestore sync it triggers, reflect the latest data.
+    if (widget.firestoreSummaries == null &&
+        !_sameMessages(oldWidget.messages, widget.messages)) {
+      setState(_processTransactions);
+    }
+  }
+
+  bool _sameMessages(List<SmsMessage> a, List<SmsMessage> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    if (a.isEmpty) return true;
+    return a.first.body == b.first.body &&
+        a.first.date?.millisecondsSinceEpoch ==
+            b.first.date?.millisecondsSinceEpoch;
   }
 
   @override
@@ -683,6 +791,12 @@ class _DashboardPageState extends State<DashboardPage>
                           const SizedBox(height: 12),
                           _ScrollAnimatedComponent(
                             scrollController: _scrollController,
+                            delay: const Duration(milliseconds: 75),
+                            child: _buildInOutBarChart(),
+                          ),
+                          const SizedBox(height: 12),
+                          _ScrollAnimatedComponent(
+                            scrollController: _scrollController,
                             delay: const Duration(milliseconds: 100),
                             child: _buildReceiptsList(),
                           ),
@@ -701,6 +815,12 @@ class _DashboardPageState extends State<DashboardPage>
                           const SizedBox(height: 12),
                           _ScrollAnimatedComponent(
                             scrollController: _scrollController,
+                            delay: const Duration(milliseconds: 225),
+                            child: _buildCumulativeChart(),
+                          ),
+                          const SizedBox(height: 12),
+                          _ScrollAnimatedComponent(
+                            scrollController: _scrollController,
                             delay: const Duration(milliseconds: 250),
                             child: _buildMetricCards(),
                           ),
@@ -715,6 +835,12 @@ class _DashboardPageState extends State<DashboardPage>
                             scrollController: _scrollController,
                             delay: const Duration(milliseconds: 350),
                             child: _buildTopSendersCard(),
+                          ),
+                          const SizedBox(height: 12),
+                          _ScrollAnimatedComponent(
+                            scrollController: _scrollController,
+                            delay: const Duration(milliseconds: 400),
+                            child: _buildIncomeInsightsCard(),
                           ),
                           SizedBox(
                             height: widget.embeddedInShell ? 88 : 24,
@@ -924,51 +1050,62 @@ class _DashboardPageState extends State<DashboardPage>
                     },
                   ),
                   const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(30),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.25),
-                        width: 1,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _heroInfoPill(
+                        Icons.trending_up,
+                        '${_transactions.where((t) => t.isReceived).length} transactions',
                       ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(3),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.trending_up,
-                            color: Colors.white,
-                            size: 12,
-                          ),
+                      if (monthlyAverageReceived > 0)
+                        _heroInfoPill(
+                          Icons.calendar_month_rounded,
+                          '${currencyFormat.format(monthlyAverageReceived)}/mo avg',
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '${_transactions.where((t) => t.isReceived).length} transactions',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
+                    ],
                   ),
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _heroInfoPill(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.25),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: Colors.white, size: 12),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1127,9 +1264,67 @@ class _DashboardPageState extends State<DashboardPage>
                 ),
               ),
             ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _summaryStat(
+                    'Received',
+                    selectedSummary.totalReceived,
+                    successColor,
+                  ),
+                ),
+                Expanded(
+                  child: _summaryStat(
+                    'Sent',
+                    selectedSummary.totalSent,
+                    dangerColor,
+                  ),
+                ),
+                Expanded(
+                  child: _summaryStat(
+                    'Net',
+                    selectedSummary.netAmount,
+                    selectedSummary.netAmount >= 0
+                        ? successColor
+                        : dangerColor,
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _summaryStat(String label, double value, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: textSecondary,
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 3),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            currencyFormat.format(value),
+            style: TextStyle(
+              color: color,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              letterSpacing: -0.3,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1153,7 +1348,11 @@ class _DashboardPageState extends State<DashboardPage>
       [Color(0xFFEC4899), Color(0xFFF472B6)],
       [Color(0xFF14B8A6), Color(0xFF5EEAD4)],
       [Color(0xFFF59E0B), Color(0xFFFBBF24)],
+      [Color(0xFFE11D48), Color(0xFFFB7185)],
+      [Color(0xFF0EA5E9), Color(0xFF7DD3FC)],
     ];
+
+    final netFlow = totalReceivedAmount - totalSentAmount;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1202,6 +1401,30 @@ class _DashboardPageState extends State<DashboardPage>
                   Icons.money_off_outlined,
                   metricGradients[3],
                   3,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildAnimatedMetricCard(
+                  'Total Sent',
+                  currencyFormat.format(totalSentAmount),
+                  Icons.arrow_outward_rounded,
+                  metricGradients[4],
+                  4,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildAnimatedMetricCard(
+                  'Net Flow',
+                  '${netFlow >= 0 ? '+' : ''}${currencyFormat.format(netFlow)}',
+                  Icons.swap_vert_rounded,
+                  metricGradients[5],
+                  5,
                 ),
               ),
             ],
@@ -1821,6 +2044,378 @@ class _DashboardPageState extends State<DashboardPage>
     );
   }
 
+  Widget _buildInOutBarChart() {
+    if (_monthlySummaries.isEmpty) return const SizedBox.shrink();
+
+    // Keep the last 8 months so grouped bars stay readable.
+    final recent = _monthlySummaries.length <= 8
+        ? _monthlySummaries
+        : _monthlySummaries.sublist(_monthlySummaries.length - 8);
+    final maxVal = recent.fold<double>(
+      0,
+      (m, s) =>
+          [m, s.totalReceived, s.totalSent].reduce((a, b) => a > b ? a : b),
+    );
+    if (maxVal <= 0) return const SizedBox.shrink();
+
+    return _buildGlassCard(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'Money In vs Out',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: textPrimary,
+                    fontSize: 16,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const Spacer(),
+                _chartLegendDot('In', successColor),
+                const SizedBox(width: 10),
+                _chartLegendDot('Out', dangerColor),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 220,
+              child: BarChart(
+                BarChartData(
+                  maxY: maxVal * 1.15,
+                  alignment: BarChartAlignment.spaceAround,
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    getDrawingHorizontalLine: (value) => FlLine(
+                      color: textSecondary.withValues(alpha: 0.15),
+                      strokeWidth: 1,
+                    ),
+                  ),
+                  titlesData: FlTitlesData(
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          final idx = value.toInt();
+                          if (idx < 0 || idx >= recent.length) {
+                            return const SizedBox.shrink();
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              DateFormat('MMM').format(recent[idx].month),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          );
+                        },
+                        reservedSize: 28,
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Text(
+                              value >= 1000000
+                                  ? '${(value / 1000000).toStringAsFixed(1)}M'
+                                  : '${(value / 1000).toStringAsFixed(0)}K',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          );
+                        },
+                        reservedSize: 46,
+                      ),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  barTouchData: BarTouchData(
+                    touchTooltipData: BarTouchTooltipData(
+                      tooltipBgColor: cardColor,
+                      tooltipRoundedRadius: 12,
+                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                        final summary = recent[group.x.toInt()];
+                        final isIn = rodIndex == 0;
+                        return BarTooltipItem(
+                          '${DateFormat('MMM yyyy').format(summary.month)}\n',
+                          TextStyle(
+                            color: textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                          children: [
+                            TextSpan(
+                              text:
+                                  '${isIn ? 'In' : 'Out'}: ${currencyFormat.format(rod.toY)}',
+                              style: TextStyle(
+                                color: isIn ? successColor : dangerColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                  barGroups: recent.asMap().entries.map((entry) {
+                    return BarChartGroupData(
+                      x: entry.key,
+                      barsSpace: 3,
+                      barRods: [
+                        BarChartRodData(
+                          toY: entry.value.totalReceived,
+                          color: successColor,
+                          width: 7,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(3),
+                          ),
+                        ),
+                        BarChartRodData(
+                          toY: entry.value.totalSent,
+                          color: dangerColor,
+                          width: 7,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(3),
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCumulativeChart() {
+    if (_monthlySummaries.length < 2) return const SizedBox.shrink();
+
+    double running = 0;
+    final spots = <FlSpot>[];
+    for (var i = 0; i < _monthlySummaries.length; i++) {
+      running += _monthlySummaries[i].totalReceived;
+      spots.add(FlSpot(i.toDouble(), running));
+    }
+    if (running <= 0) return const SizedBox.shrink();
+
+    return _buildGlassCard(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Cumulative Income',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: textPrimary,
+                    fontSize: 16,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: AppDecorations.iconBadge(
+                    _c,
+                    context,
+                    [accentPurple, accentPurple.withValues(alpha: 0.7)],
+                  ),
+                  child: Text(
+                    currencyFormat.format(running),
+                    style: TextStyle(
+                      color: AppDecorations.iconBadgeForeground(
+                        _c,
+                        context,
+                        [accentPurple],
+                      ),
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 200,
+              child: LineChart(
+                LineChartData(
+                  minY: 0,
+                  maxY: running * 1.1,
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    getDrawingHorizontalLine: (value) => FlLine(
+                      color: textSecondary.withValues(alpha: 0.15),
+                      strokeWidth: 1,
+                    ),
+                  ),
+                  titlesData: FlTitlesData(
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          final idx = value.toInt();
+                          if (idx < 0 || idx >= _monthlySummaries.length) {
+                            return const SizedBox.shrink();
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              DateFormat(
+                                'MMM',
+                              ).format(_monthlySummaries[idx].month),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          );
+                        },
+                        reservedSize: 28,
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Text(
+                              value >= 1000000
+                                  ? '${(value / 1000000).toStringAsFixed(1)}M'
+                                  : '${(value / 1000).toStringAsFixed(0)}K',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          );
+                        },
+                        reservedSize: 50,
+                      ),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: spots,
+                      isCurved: true,
+                      curveSmoothness: 0.25,
+                      preventCurveOverShooting: true,
+                      color: accentPurple,
+                      barWidth: 2.4,
+                      isStrokeCapRound: true,
+                      dotData: const FlDotData(show: false),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        gradient: AppDecorations.chartAreaFill(accentPurple),
+                      ),
+                    ),
+                  ],
+                  lineTouchData: LineTouchData(
+                    enabled: true,
+                    touchTooltipData: LineTouchTooltipData(
+                      tooltipBgColor: cardColor,
+                      tooltipRoundedRadius: 12,
+                      tooltipPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      getTooltipItems: (touchedSpots) {
+                        return touchedSpots.map((spot) {
+                          final monthData = _monthlySummaries[spot.x.toInt()];
+                          return LineTooltipItem(
+                            'Through ${DateFormat('MMM yyyy').format(monthData.month)}\n',
+                            TextStyle(
+                              color: textPrimary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                            children: [
+                              TextSpan(
+                                text: currencyFormat.format(spot.y),
+                                style: TextStyle(
+                                  color: accentPurple,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          );
+                        }).toList();
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _chartLegendDot(String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: TextStyle(
+            color: textSecondary,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildMonthProgressChart() {
     final sortedSummaries = List<MonthlyTransactionSummary>.from(
       _monthlySummaries,
@@ -2098,19 +2693,24 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   Widget _buildTopSendersCard() {
-    if (_transactions.isEmpty) return const SizedBox.shrink();
+    final hasAnySenders = _smsTransactions.any((t) => t.isReceived);
+    if (!hasAnySenders) return const SizedBox.shrink();
 
-    final maxAmount = topCounterparties.isEmpty
-        ? 1.0
-        : topCounterparties.first.value;
+    final all = _senderEntries();
+    final visible =
+        _sendersExpanded ? all : all.take(_kListPreviewCount).toList();
+    final windowReceived = all.fold<double>(0, (s, e) => s + e.amount);
+    final maxAmount =
+        visible.fold<double>(0, (m, e) => e.amount > m ? e.amount : m);
+    final barMax = maxAmount > 0 ? maxAmount : 1.0;
 
     return _buildGlassCard(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
+            child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
@@ -2130,148 +2730,381 @@ class _DashboardPageState extends State<DashboardPage>
                   ),
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  'Top Senders',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: textPrimary,
-                    fontSize: 16,
-                    letterSpacing: -0.3,
+                Expanded(
+                  child: Text(
+                    'Top Senders',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: textPrimary,
+                      fontSize: 16,
+                      letterSpacing: -0.3,
+                    ),
                   ),
+                ),
+                _buildSortButton(
+                  current: _sendersSort,
+                  onChanged: (v) => setState(() => _sendersSort = v),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
-            ...topCounterparties.asMap().entries.map((entry) {
-              final index = entry.key;
-              final data = entry.value;
-              final percentage = (data.value / maxAmount * 100);
-
-              final gradientColors = [
-                const Color(0xFF6366F1),
-                const Color(0xFF8B5CF6),
-                const Color(0xFFEC4899),
-                const Color(0xFFF59E0B),
-                const Color(0xFF10B981),
-              ];
-
-              final rowAnimation = CurvedAnimation(
-                parent: _staggerController,
-                curve: Interval(
-                  (0.40 + (index * 0.04)).clamp(0.0, 1.0),
-                  (0.70 + (index * 0.04)).clamp(0.0, 1.0),
-                  curve: Curves.easeOutCubic,
-                ),
-              );
-
-              return AnimatedBuilder(
-                animation: rowAnimation,
-                builder: (context, child) {
-                  return Transform.translate(
-                    offset: Offset(30 * (1 - rowAnimation.value), 0),
-                    child: Opacity(
-                      opacity: rowAnimation.value.clamp(0.0, 1.0),
-                      child: child,
+          ),
+          _periodChipRow(
+            current: _sendersPeriod,
+            onChanged: (v) => setState(() {
+              _sendersPeriod = v;
+              _sendersExpanded = false;
+            }),
+          ),
+          if (all.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 18),
+              child: Text(
+                'No senders in this period.',
+                style: TextStyle(color: textSecondary, fontSize: 12),
+              ),
+            )
+          else ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
+              child: Column(
+                children: [
+                  for (final entry in visible.asMap().entries)
+                    _buildSenderRow(
+                      index: entry.key,
+                      sender: entry.value,
+                      maxAmount: barMax,
+                      windowReceived: windowReceived,
                     ),
-                  );
-                },
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                ],
+              ),
+            ),
+            _sectionExpandButton(
+              total: all.length,
+              expanded: _sendersExpanded,
+              onToggle: () =>
+                  setState(() => _sendersExpanded = !_sendersExpanded),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSenderRow({
+    required int index,
+    required _SenderEntry sender,
+    required double maxAmount,
+    required double windowReceived,
+  }) {
+    final percentage = sender.amount / maxAmount * 100;
+    const gradientColors = [
+      Color(0xFF6366F1),
+      Color(0xFF8B5CF6),
+      Color(0xFFEC4899),
+      Color(0xFFF59E0B),
+      Color(0xFF10B981),
+    ];
+    final color = gradientColors[index % gradientColors.length];
+
+    final rowAnimation = CurvedAnimation(
+      parent: _staggerController,
+      curve: Interval(
+        (0.40 + (index * 0.04)).clamp(0.0, 1.0),
+        (0.70 + (index * 0.04)).clamp(0.0, 1.0),
+        curve: Curves.easeOutCubic,
+      ),
+    );
+
+    return AnimatedBuilder(
+      animation: rowAnimation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(30 * (1 - rowAnimation.value), 0),
+          child: Opacity(
+            opacity: rowAnimation.value.clamp(0.0, 1.0),
+            child: child,
+          ),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Row(
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 28,
-                                  height: 28,
-                                  decoration: AppDecorations.iconBadge(
-                                    _c,
-                                    context,
-                                    [
-                                      gradientColors[index %
-                                          gradientColors.length],
-                                      gradientColors[index %
-                                              gradientColors.length]
-                                          .withValues(alpha: 0.7),
-                                    ],
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      '${index + 1}',
-                                      style: TextStyle(
-                                        color: AppDecorations.iconBadgeForeground(
-                                          _c,
-                                          context,
-                                          [
-                                            gradientColors[index %
-                                                gradientColors.length],
-                                          ],
-                                        ),
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    data.key,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
-                                      color: textPrimary,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Text(
-                            currencyFormat.format(data.value),
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: AppDecorations.iconBadge(
+                          _c,
+                          context,
+                          [color, color.withValues(alpha: 0.7)],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${index + 1}',
                             style: TextStyle(
-                              color: textPrimary,
+                              color: AppDecorations.iconBadgeForeground(
+                                _c,
+                                context,
+                                [color],
+                              ),
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
                             ),
                           ),
-                        ],
+                        ),
                       ),
-                      const SizedBox(height: 12),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: TweenAnimationBuilder<double>(
-                          tween: Tween(begin: 0.0, end: percentage / 100),
-                          duration: const Duration(milliseconds: 800),
-                          curve: Curves.easeOutCubic,
-                          builder: (context, animatedValue, child) {
-                            return LinearProgressIndicator(
-                              value: animatedValue,
-                              minHeight: 8,
-                              backgroundColor: textSecondary.withValues(
-                                alpha: 0.2,
-                              ),
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                gradientColors[index % gradientColors.length],
-                              ),
-                            );
-                          },
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          sender.name,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: textPrimary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
                 ),
-              );
-            }),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      currencyFormat.format(sender.amount),
+                      style: TextStyle(
+                        color: textPrimary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                    if (windowReceived > 0)
+                      Text(
+                        '${(sender.amount / windowReceived * 100).toStringAsFixed(1)}% of income',
+                        style: TextStyle(
+                          color: textSecondary,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: percentage / 100),
+                duration: const Duration(milliseconds: 800),
+                curve: Curves.easeOutCubic,
+                builder: (context, animatedValue, child) {
+                  return LinearProgressIndicator(
+                    value: animatedValue,
+                    minHeight: 8,
+                    backgroundColor: textSecondary.withValues(alpha: 0.2),
+                    valueColor: AlwaysStoppedAnimation<Color>(color),
+                  );
+                },
+              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildIncomeInsightsCard() {
+    if (_monthlySummaries.isEmpty) return const SizedBox.shrink();
+
+    final summary = _insightSummaryForPeriod();
+    final buckets = _periodBuckets(_insightsPeriod, _insightsSort);
+    final consistency =
+        summary.total == 0 ? 0.0 : summary.active / summary.total;
+
+    return _buildGlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: AppDecorations.sectionIcon(
+                    _c,
+                    context,
+                    accentColor,
+                  ),
+                  child: Icon(
+                    Icons.insights_rounded,
+                    color: AppDecorations.sectionIconForeground(
+                      _c,
+                      context,
+                      accentColor,
+                    ),
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Income Insights',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: textPrimary,
+                      fontSize: 16,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                ),
+                _buildSortButton(
+                  current: _insightsSort,
+                  onChanged: (v) => setState(() => _insightsSort = v),
+                ),
+              ],
+            ),
+          ),
+          _periodChipRow(
+            current: _insightsPeriod,
+            onChanged: (v) => setState(() {
+              _insightsPeriod = v;
+              _insightsExpanded = false;
+            }),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
+            child: Column(
+              children: [
+                if (summary.bestAmount != null)
+                  _insightRow(
+                    Icons.star_rounded,
+                    successColor,
+                    'Best ${summary.grain}',
+                    currencyFormat.format(summary.bestAmount),
+                    sub: summary.bestSub,
+                  ),
+                if (summary.projected > 0)
+                  _insightRow(
+                    Icons.query_stats_rounded,
+                    accentPurple,
+                    'Projected this ${summary.grain}',
+                    currencyFormat.format(summary.projected),
+                    sub: 'At the current daily pace',
+                  ),
+                if (summary.average > 0)
+                  _insightRow(
+                    Icons.stacked_line_chart_rounded,
+                    primaryColor,
+                    '3-${summary.grain} average',
+                    currencyFormat.format(summary.average),
+                    sub: 'Last completed ${summary.grain}s',
+                  ),
+                _insightRow(
+                  Icons.event_available_rounded,
+                  accentColor,
+                  'Active ${summary.grain}s',
+                  '${summary.active} of ${summary.total}',
+                  sub:
+                      '${(consistency * 100).toStringAsFixed(0)}% of tracked ${summary.grain}s had income',
+                ),
+              ],
+            ),
+          ),
+          if (buckets.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 18),
+              child: Text(
+                _insightsPeriod == _ListPeriod.week
+                    ? "Weekly breakdown isn't available for this account yet."
+                    : 'No income periods to show.',
+                style: TextStyle(color: textSecondary, fontSize: 12),
+              ),
+            )
+          else ...[
+            ..._receiptRows(
+              buckets,
+              maxTiles: _insightsExpanded ? null : _kListPreviewCount,
+              period: _insightsPeriod,
+              showSent: false,
+            ),
+            _sectionExpandButton(
+              total: buckets.length,
+              expanded: _insightsExpanded,
+              onToggle: () =>
+                  setState(() => _insightsExpanded = !_insightsExpanded),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _insightRow(
+    IconData icon,
+    Color color,
+    String label,
+    String value, {
+    String? sub,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: AppDecorations.sectionIcon(_c, context, color),
+            child: Icon(
+              icon,
+              size: 16,
+              color: AppDecorations.sectionIconForeground(_c, context, color),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: textSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (sub != null)
+                  Text(
+                    sub,
+                    style: TextStyle(
+                      color: textSecondary.withValues(alpha: 0.7),
+                      fontSize: 9,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            value,
+            style: TextStyle(
+              color: textPrimary,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2281,9 +3114,9 @@ class _DashboardPageState extends State<DashboardPage>
 
     final buckets = _receiptBuckets();
     final title = switch (_receiptPeriod) {
-      _ReceiptPeriod.week => 'Weekly Receipts',
-      _ReceiptPeriod.month => 'Monthly Receipts',
-      _ReceiptPeriod.year => 'Yearly Receipts',
+      _ListPeriod.week => 'Weekly Receipts',
+      _ListPeriod.month => 'Monthly Receipts',
+      _ListPeriod.year => 'Yearly Receipts',
     };
 
     return _buildGlassCard(
@@ -2323,36 +3156,45 @@ class _DashboardPageState extends State<DashboardPage>
                     ),
                   ),
                 ),
-                _buildReceiptSortButton(),
+                _buildSortButton(
+                  current: _receiptSort,
+                  onChanged: (v) => setState(() => _receiptSort = v),
+                ),
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-            child: Row(
-              children: [
-                _periodChip('Week', _ReceiptPeriod.week),
-                const SizedBox(width: 6),
-                _periodChip('Month', _ReceiptPeriod.month),
-                const SizedBox(width: 6),
-                _periodChip('Year', _ReceiptPeriod.year),
-                const Spacer(),
-                if (_receiptPeriod != _ReceiptPeriod.year) _buildGroupToggle(),
-              ],
-            ),
+          _periodChipRow(
+            current: _receiptPeriod,
+            onChanged: (v) => setState(() {
+              _receiptPeriod = v;
+              _receiptExpanded = false;
+            }),
+            trailing: _receiptPeriod != _ListPeriod.year
+                ? _buildGroupToggle()
+                : null,
           ),
           if (buckets.isEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 18),
               child: Text(
-                _receiptPeriod == _ReceiptPeriod.week
+                _receiptPeriod == _ListPeriod.week
                     ? "Weekly breakdown isn't available for this account yet."
                     : 'No receipts to show.',
                 style: TextStyle(color: textSecondary, fontSize: 12),
               ),
             )
-          else
-            ..._receiptRows(buckets),
+          else ...[
+            ..._receiptRows(
+              buckets,
+              maxTiles: _receiptExpanded ? null : _kListPreviewCount,
+            ),
+            _sectionExpandButton(
+              total: buckets.length,
+              expanded: _receiptExpanded,
+              onToggle: () =>
+                  setState(() => _receiptExpanded = !_receiptExpanded),
+            ),
+          ],
           const SizedBox(height: 6),
         ],
       ),
@@ -2373,12 +3215,15 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   /// Builds normalized, sorted buckets for the selected period.
-  List<_ReceiptBucket> _receiptBuckets() {
+  List<_ReceiptBucket> _receiptBuckets() =>
+      _periodBuckets(_receiptPeriod, _receiptSort);
+
+  List<_ReceiptBucket> _periodBuckets(_ListPeriod period, _ListSort sort) {
     final now = DateTime.now();
     final buckets = <_ReceiptBucket>[];
 
-    switch (_receiptPeriod) {
-      case _ReceiptPeriod.month:
+    switch (period) {
+      case _ListPeriod.month:
         for (final s in _monthlySummaries) {
           buckets.add(_ReceiptBucket(
             date: DateTime(s.month.year, s.month.month),
@@ -2389,7 +3234,7 @@ class _DashboardPageState extends State<DashboardPage>
           ));
         }
         break;
-      case _ReceiptPeriod.year:
+      case _ListPeriod.year:
         final byYear = <int, List<double>>{}; // year -> [received, sent, count]
         for (final s in _monthlySummaries) {
           final acc = byYear.putIfAbsent(s.month.year, () => [0.0, 0.0, 0.0]);
@@ -2407,7 +3252,7 @@ class _DashboardPageState extends State<DashboardPage>
           ));
         });
         break;
-      case _ReceiptPeriod.week:
+      case _ListPeriod.week:
         final weekNow = WeeklyTransactionSummary.startOfWeek(now);
         for (final w in _displayWeekly()) {
           buckets.add(_ReceiptBucket(
@@ -2424,23 +3269,101 @@ class _DashboardPageState extends State<DashboardPage>
     }
 
     buckets.sort((a, b) {
-      switch (_receiptSort) {
-        case _ReceiptSort.dateDesc:
+      switch (sort) {
+        case _ListSort.dateDesc:
           return b.date.compareTo(a.date);
-        case _ReceiptSort.dateAsc:
+        case _ListSort.dateAsc:
           return a.date.compareTo(b.date);
-        case _ReceiptSort.amountDesc:
+        case _ListSort.amountDesc:
           return b.received.compareTo(a.received);
-        case _ReceiptSort.amountAsc:
+        case _ListSort.amountAsc:
           return a.received.compareTo(b.received);
       }
     });
     return buckets;
   }
 
+  _InsightSummary _insightSummaryForPeriod() {
+    final period = _insightsPeriod;
+    final grain = switch (period) {
+      _ListPeriod.week => 'week',
+      _ListPeriod.month => 'month',
+      _ListPeriod.year => 'year',
+    };
+    final buckets = _periodBuckets(period, _ListSort.dateAsc);
+    final now = DateTime.now();
+
+    _ReceiptBucket? best;
+    for (final b in buckets) {
+      if (b.received <= 0) continue;
+      if (best == null || b.received > best.received) best = b;
+    }
+
+    String? bestSub;
+    if (best != null) {
+      bestSub = switch (period) {
+        _ListPeriod.week =>
+          '${DateFormat('MMM d').format(best.date)} – ${DateFormat('MMM d').format(best.date.add(const Duration(days: 6)))}',
+        _ListPeriod.month => DateFormat('MMMM yyyy').format(best.date),
+        _ListPeriod.year => DateFormat('yyyy').format(best.date),
+      };
+    }
+
+    double projected = 0;
+    _ReceiptBucket? current;
+    for (final b in buckets) {
+      if (b.isCurrent) {
+        current = b;
+        break;
+      }
+    }
+    if (current != null && current.received > 0) {
+      switch (period) {
+        case _ListPeriod.week:
+          final elapsed =
+              (now.difference(current.date).inDays + 1).clamp(1, 7);
+          projected = current.received / elapsed * 7;
+        case _ListPeriod.month:
+          final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+          projected = current.received / now.day * daysInMonth;
+        case _ListPeriod.year:
+          final yearStart = DateTime(now.year);
+          final daysInYear =
+              DateTime(now.year, 12, 31).difference(yearStart).inDays + 1;
+          final dayOfYear = now.difference(yearStart).inDays + 1;
+          projected = current.received / dayOfYear * daysInYear;
+      }
+    }
+
+    final completed = buckets.where((b) => !b.isCurrent).toList();
+    final recent = completed.length <= 3
+        ? completed
+        : completed.sublist(completed.length - 3);
+    final average = recent.isEmpty
+        ? 0.0
+        : recent.fold<double>(0, (s, b) => s + b.received) / recent.length;
+
+    final active = buckets.where((b) => b.received > 0).length;
+    return _InsightSummary(
+      grain: grain,
+      bestAmount: best?.received,
+      bestSub: bestSub,
+      projected: projected,
+      average: average,
+      active: active,
+      total: buckets.length,
+    );
+  }
+
   // ---- Receipts rendering ---------------------------------------------------
 
-  List<Widget> _receiptRows(List<_ReceiptBucket> buckets) {
+  List<Widget> _receiptRows(
+    List<_ReceiptBucket> buckets, {
+    int? maxTiles,
+    _ListPeriod? period,
+    bool showSent = true,
+  }) {
+    final grain = period ?? _receiptPeriod;
     final divider = Divider(
       height: 1,
       indent: 14,
@@ -2448,12 +3371,21 @@ class _DashboardPageState extends State<DashboardPage>
       color: cardBorder.withValues(alpha: 0.3),
     );
 
+    Widget tile(_ReceiptBucket bucket) => _buildReceiptTile(
+          bucket,
+          period: grain,
+          showSent: showSent,
+        );
+
     // Flat list (no grouping, or year period which is already the coarsest).
-    if (!_receiptGrouped || _receiptPeriod == _ReceiptPeriod.year) {
+    if (!_receiptGrouped || grain == _ListPeriod.year || period != null) {
+      final visible = maxTiles == null
+          ? buckets
+          : buckets.take(maxTiles).toList();
       final rows = <Widget>[];
-      for (var i = 0; i < buckets.length; i++) {
+      for (var i = 0; i < visible.length; i++) {
         if (i > 0) rows.add(divider);
-        rows.add(_buildReceiptTile(buckets[i]));
+        rows.add(tile(visible[i]));
       }
       return rows;
     }
@@ -2461,7 +3393,7 @@ class _DashboardPageState extends State<DashboardPage>
     // Grouped: weeks -> by month, months -> by year. Insertion order follows the
     // already-sorted buckets, so group order respects the active sort.
     final groups = <String, List<_ReceiptBucket>>{};
-    String keyOf(_ReceiptBucket b) => _receiptPeriod == _ReceiptPeriod.week
+    String keyOf(_ReceiptBucket b) => grain == _ListPeriod.week
         ? DateFormat('yyyy-MM').format(b.date)
         : '${b.date.year}';
     for (final b in buckets) {
@@ -2469,17 +3401,25 @@ class _DashboardPageState extends State<DashboardPage>
     }
 
     final rows = <Widget>[];
-    groups.forEach((_, items) {
-      final subtotal = items.fold<double>(0, (s, b) => s + b.received);
-      final label = _receiptPeriod == _ReceiptPeriod.week
-          ? DateFormat('MMMM yyyy').format(items.first.date)
-          : '${items.first.date.year}';
+    var tilesShown = 0;
+    for (final items in groups.values) {
+      if (maxTiles != null && tilesShown >= maxTiles) break;
+      final remaining =
+          maxTiles == null ? items.length : maxTiles - tilesShown;
+      final visibleItems = items.take(remaining).toList();
+      if (visibleItems.isEmpty) continue;
+      final subtotal =
+          visibleItems.fold<double>(0, (s, b) => s + b.received);
+      final label = grain == _ListPeriod.week
+          ? DateFormat('MMMM yyyy').format(visibleItems.first.date)
+          : '${visibleItems.first.date.year}';
       rows.add(_buildReceiptGroupHeader(label, subtotal));
-      for (var i = 0; i < items.length; i++) {
-        rows.add(_buildReceiptTile(items[i]));
-        if (i < items.length - 1) rows.add(divider);
+      for (var i = 0; i < visibleItems.length; i++) {
+        rows.add(tile(visibleItems[i]));
+        if (i < visibleItems.length - 1) rows.add(divider);
       }
-    });
+      tilesShown += visibleItems.length;
+    }
     return rows;
   }
 
@@ -2513,23 +3453,28 @@ class _DashboardPageState extends State<DashboardPage>
     );
   }
 
-  Widget _buildReceiptTile(_ReceiptBucket bucket) {
+  Widget _buildReceiptTile(
+    _ReceiptBucket bucket, {
+    _ListPeriod? period,
+    bool showSent = true,
+  }) {
+    final grain = period ?? _receiptPeriod;
     final isCurrent = bucket.isCurrent;
-    final top = switch (_receiptPeriod) {
-      _ReceiptPeriod.week => DateFormat('MMM').format(bucket.date),
-      _ReceiptPeriod.month => DateFormat('MMM').format(bucket.date),
-      _ReceiptPeriod.year => 'YR',
+    final top = switch (grain) {
+      _ListPeriod.week => DateFormat('MMM').format(bucket.date),
+      _ListPeriod.month => DateFormat('MMM').format(bucket.date),
+      _ListPeriod.year => 'YR',
     };
-    final bottom = switch (_receiptPeriod) {
-      _ReceiptPeriod.week => DateFormat('d').format(bucket.date),
-      _ReceiptPeriod.month => DateFormat('yy').format(bucket.date),
-      _ReceiptPeriod.year => DateFormat('yyyy').format(bucket.date),
+    final bottom = switch (grain) {
+      _ListPeriod.week => DateFormat('d').format(bucket.date),
+      _ListPeriod.month => DateFormat('yy').format(bucket.date),
+      _ListPeriod.year => DateFormat('yyyy').format(bucket.date),
     };
-    final title = switch (_receiptPeriod) {
-      _ReceiptPeriod.week =>
+    final title = switch (grain) {
+      _ListPeriod.week =>
         '${DateFormat('MMM d').format(bucket.date)} – ${DateFormat('MMM d').format(bucket.date.add(const Duration(days: 6)))}',
-      _ReceiptPeriod.month => DateFormat('MMMM yyyy').format(bucket.date),
-      _ReceiptPeriod.year => DateFormat('yyyy').format(bucket.date),
+      _ListPeriod.month => DateFormat('MMMM yyyy').format(bucket.date),
+      _ListPeriod.year => DateFormat('yyyy').format(bucket.date),
     };
 
     return Container(
@@ -2600,24 +3545,44 @@ class _DashboardPageState extends State<DashboardPage>
             fontSize: 10,
           ),
         ),
-        trailing: Text(
-          currencyFormat.format(bucket.received),
-          style: TextStyle(
-            color: isCurrent ? primaryColor : textPrimary,
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-          ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              currencyFormat.format(bucket.received),
+              style: TextStyle(
+                color: isCurrent ? primaryColor : textPrimary,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+            if (showSent && bucket.sent > 0)
+              Text(
+                '-${currencyFormat.format(bucket.sent)}',
+                style: TextStyle(
+                  color: dangerColor.withValues(alpha: 0.85),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 10,
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
 
-  // ---- Receipts controls ----------------------------------------------------
+  // ---- Shared list controls -------------------------------------------------
 
-  Widget _periodChip(String label, _ReceiptPeriod value) {
-    final selected = _receiptPeriod == value;
+  Widget _periodChip({
+    required String label,
+    required _ListPeriod value,
+    required _ListPeriod current,
+    required ValueChanged<_ListPeriod> onChanged,
+  }) {
+    final selected = current == value;
     return GestureDetector(
-      onTap: () => setState(() => _receiptPeriod = value),
+      onTap: () => onChanged(value),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -2638,6 +3603,70 @@ class _DashboardPageState extends State<DashboardPage>
             color: selected ? primaryColor : textSecondary,
             fontSize: 12,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _periodChipRow({
+    required _ListPeriod current,
+    required ValueChanged<_ListPeriod> onChanged,
+    Widget? trailing,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+      child: Row(
+        children: [
+          _periodChip(
+            label: 'Week',
+            value: _ListPeriod.week,
+            current: current,
+            onChanged: onChanged,
+          ),
+          const SizedBox(width: 6),
+          _periodChip(
+            label: 'Month',
+            value: _ListPeriod.month,
+            current: current,
+            onChanged: onChanged,
+          ),
+          const SizedBox(width: 6),
+          _periodChip(
+            label: 'Year',
+            value: _ListPeriod.year,
+            current: current,
+            onChanged: onChanged,
+          ),
+          const Spacer(),
+          if (trailing != null) trailing,
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionExpandButton({
+    required int total,
+    required bool expanded,
+    required VoidCallback onToggle,
+  }) {
+    if (total <= _kListPreviewCount) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 4, 14, 10),
+      child: SizedBox(
+        width: double.infinity,
+        child: TextButton(
+          onPressed: onToggle,
+          style: TextButton.styleFrom(
+            foregroundColor: primaryColor,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+          ),
+          child: Text(
+            expanded ? 'Show less' : 'Show all ($total)',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ),
@@ -2684,47 +3713,50 @@ class _DashboardPageState extends State<DashboardPage>
     );
   }
 
-  Widget _buildReceiptSortButton() {
-    String labelFor(_ReceiptSort s) => switch (s) {
-      _ReceiptSort.dateDesc => 'Newest',
-      _ReceiptSort.dateAsc => 'Oldest',
-      _ReceiptSort.amountDesc => 'Highest',
-      _ReceiptSort.amountAsc => 'Lowest',
+  Widget _buildSortButton({
+    required _ListSort current,
+    required ValueChanged<_ListSort> onChanged,
+  }) {
+    String labelFor(_ListSort s) => switch (s) {
+      _ListSort.dateDesc => 'Newest',
+      _ListSort.dateAsc => 'Oldest',
+      _ListSort.amountDesc => 'Highest',
+      _ListSort.amountAsc => 'Lowest',
     };
 
-    return PopupMenuButton<_ReceiptSort>(
-      initialValue: _receiptSort,
+    return PopupMenuButton<_ListSort>(
+      initialValue: current,
       tooltip: 'Sort',
-      onSelected: (v) => setState(() => _receiptSort = v),
+      onSelected: onChanged,
       color: cardColor,
       itemBuilder: (context) => [
-        for (final s in _ReceiptSort.values)
-          PopupMenuItem<_ReceiptSort>(
+        for (final s in _ListSort.values)
+          PopupMenuItem<_ListSort>(
             value: s,
             child: Row(
               children: [
                 Icon(
                   switch (s) {
-                    _ReceiptSort.dateDesc => Icons.arrow_downward_rounded,
-                    _ReceiptSort.dateAsc => Icons.arrow_upward_rounded,
-                    _ReceiptSort.amountDesc => Icons.trending_down_rounded,
-                    _ReceiptSort.amountAsc => Icons.trending_up_rounded,
+                    _ListSort.dateDesc => Icons.arrow_downward_rounded,
+                    _ListSort.dateAsc => Icons.arrow_upward_rounded,
+                    _ListSort.amountDesc => Icons.trending_down_rounded,
+                    _ListSort.amountAsc => Icons.trending_up_rounded,
                   },
                   size: 16,
-                  color: _receiptSort == s ? primaryColor : textSecondary,
+                  color: current == s ? primaryColor : textSecondary,
                 ),
                 const SizedBox(width: 10),
                 Text(
                   switch (s) {
-                    _ReceiptSort.dateDesc => 'Newest first',
-                    _ReceiptSort.dateAsc => 'Oldest first',
-                    _ReceiptSort.amountDesc => 'Highest amount',
-                    _ReceiptSort.amountAsc => 'Lowest amount',
+                    _ListSort.dateDesc => 'Newest first',
+                    _ListSort.dateAsc => 'Oldest first',
+                    _ListSort.amountDesc => 'Highest amount',
+                    _ListSort.amountAsc => 'Lowest amount',
                   },
                   style: TextStyle(
-                    color: _receiptSort == s ? primaryColor : textPrimary,
+                    color: current == s ? primaryColor : textPrimary,
                     fontWeight:
-                        _receiptSort == s ? FontWeight.w700 : FontWeight.w500,
+                        current == s ? FontWeight.w700 : FontWeight.w500,
                     fontSize: 13,
                   ),
                 ),
@@ -2745,7 +3777,7 @@ class _DashboardPageState extends State<DashboardPage>
             Icon(Icons.sort_rounded, size: 14, color: textSecondary),
             const SizedBox(width: 4),
             Text(
-              labelFor(_receiptSort),
+              labelFor(current),
               style: TextStyle(
                 color: textSecondary,
                 fontSize: 12,

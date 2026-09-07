@@ -41,6 +41,16 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
   Color get textPrimary => _c.textPrimary;
   Color get textSecondary => _c.textSecondary;
 
+  double get _poolTotal =>
+      _entries.fold<double>(0, (sum, e) => sum + e.totalReceived);
+
+  LeaderboardEntry? get _selfEntry {
+    for (final e in _entries) {
+      if (e.isSelf) return e;
+    }
+    return null;
+  }
+
   String get _periodLabel => switch (_period) {
     LeaderboardPeriod.thisWeek => 'This week',
     LeaderboardPeriod.thisMonth => 'This month',
@@ -234,8 +244,18 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
         if (_entries.isEmpty)
           _buildEmptyState()
         else ...[
+          _buildStatsStrip(),
+          const SizedBox(height: 12),
+          if (_entries.length > 1) ...[
+            _buildDistributionCard(),
+            const SizedBox(height: 12),
+          ],
           _buildTopThree(),
           const SizedBox(height: 12),
+          if (_selfEntry != null) ...[
+            _buildYourStandingCard(),
+            const SizedBox(height: 12),
+          ],
           if (_entries.length > 3) ...[
             Padding(
               padding: const EdgeInsets.only(bottom: 8, left: 4),
@@ -319,6 +339,332 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildStatsStrip() {
+    final players = _entries.length;
+    final pool = _poolTotal;
+    final average = players == 0 ? 0.0 : pool / players;
+    final topShare = pool > 0 ? _entries.first.totalReceived / pool : 0.0;
+
+    return _buildGlassCard(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Expanded(
+              child: _stripStat(
+                'Players',
+                '$players',
+                Icons.groups_rounded,
+                primaryColor,
+              ),
+            ),
+            _stripDivider(),
+            Expanded(
+              child: _stripStat(
+                'Pool',
+                _currencyFormat.format(pool),
+                Icons.savings_rounded,
+                successColor,
+              ),
+            ),
+            _stripDivider(),
+            Expanded(
+              child: _stripStat(
+                'Average',
+                _currencyFormat.format(average),
+                Icons.equalizer_rounded,
+                accentPurple,
+              ),
+            ),
+            _stripDivider(),
+            Expanded(
+              child: _stripStat(
+                'Top holds',
+                '${(topShare * 100).toStringAsFixed(0)}%',
+                Icons.emoji_events_rounded,
+                const Color(0xFFFFD54F),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _stripStat(String label, String value, IconData icon, Color color) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 18),
+        const SizedBox(height: 6),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value,
+            style: TextStyle(
+              color: textPrimary,
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
+            ),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(
+            color: textSecondary,
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _stripDivider() {
+    return Container(
+      width: 1,
+      height: 36,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      color: cardBorder.withValues(alpha: 0.4),
+    );
+  }
+
+  Widget _buildDistributionCard() {
+    final pool = _poolTotal;
+    if (pool <= 0) return const SizedBox.shrink();
+
+    final top = _entries.take(5).toList();
+    final topSum = top.fold<double>(0, (s, e) => s + e.totalReceived);
+    final others = (pool - topSum).clamp(0.0, double.infinity);
+    final othersColor = textSecondary.withValues(alpha: 0.35);
+
+    const colors = [
+      Color(0xFFFFD54F),
+      Color(0xFFB0BEC5),
+      Color(0xFFCD7F32),
+      Color(0xFF6366F1),
+      Color(0xFF10B981),
+    ];
+
+    int flexFor(double value) =>
+        ((value / pool) * 1000).round().clamp(1, 1000);
+
+    return _buildGlassCard(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.pie_chart_rounded, color: primaryColor, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  'Pool distribution',
+                  style: TextStyle(
+                    color: textPrimary,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: SizedBox(
+                height: 12,
+                child: Row(
+                  children: [
+                    for (var i = 0; i < top.length; i++)
+                      Expanded(
+                        flex: flexFor(top[i].totalReceived),
+                        child: Container(color: colors[i % colors.length]),
+                      ),
+                    if (others > 0)
+                      Expanded(
+                        flex: flexFor(others),
+                        child: Container(color: othersColor),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 12,
+              runSpacing: 6,
+              children: [
+                for (var i = 0; i < top.length; i++)
+                  _distributionLegend(
+                    colors[i % colors.length],
+                    top[i].isSelf
+                        ? '${top[i].displayLabel} (You)'
+                        : top[i].displayLabel,
+                    top[i].totalReceived / pool,
+                  ),
+                if (others > 0)
+                  _distributionLegend(othersColor, 'Others', others / pool),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _distributionLegend(Color color, String label, double share) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 110),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: textPrimary,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          '${(share * 100).toStringAsFixed(1)}%',
+          style: TextStyle(
+            color: textSecondary,
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildYourStandingCard() {
+    final self = _selfEntry;
+    if (self == null) return const SizedBox.shrink();
+
+    final players = _entries.length;
+    final percentile = players == 0 ? 0.0 : self.rank / players;
+    final pool = _poolTotal;
+    final share = pool > 0 ? self.totalReceived / pool : 0.0;
+
+    LeaderboardEntry? nextAbove;
+    for (final e in _entries) {
+      if (e.rank == self.rank - 1) {
+        nextAbove = e;
+        break;
+      }
+    }
+    final gap =
+        nextAbove == null ? 0.0 : nextAbove.totalReceived - self.totalReceived;
+
+    return _buildGlassCard(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.person_pin_circle_rounded,
+                  color: primaryColor,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Your standing · $_periodLabel',
+                  style: TextStyle(
+                    color: textPrimary,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _stripStat(
+                    'Rank',
+                    '#${self.rank}',
+                    Icons.tag_rounded,
+                    primaryColor,
+                  ),
+                ),
+                _stripDivider(),
+                Expanded(
+                  child: _stripStat(
+                    'Top',
+                    '${(percentile * 100).ceil()}%',
+                    Icons.percent_rounded,
+                    successColor,
+                  ),
+                ),
+                _stripDivider(),
+                Expanded(
+                  child: _stripStat(
+                    'Pool share',
+                    '${(share * 100).toStringAsFixed(1)}%',
+                    Icons.pie_chart_rounded,
+                    accentPurple,
+                  ),
+                ),
+              ],
+            ),
+            if (nextAbove != null && gap > 0) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: primaryColor.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: primaryColor.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.arrow_upward_rounded,
+                      color: primaryColor,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '${_currencyFormat.format(gap)} more to pass ${nextAbove.displayLabel} for #${nextAbove.rank}',
+                        style: TextStyle(
+                          color: textPrimary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -465,7 +811,16 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                       fontWeight: FontWeight.w600,
                     ),
                   )
-                : null,
+                : (_poolTotal > 0
+                      ? Text(
+                          '${(entry.totalReceived / _poolTotal * 100).toStringAsFixed(1)}% of pool',
+                          style: TextStyle(
+                            color: textSecondary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        )
+                      : null),
             trailing: Text(
               _currencyFormat.format(entry.totalReceived),
               style: TextStyle(

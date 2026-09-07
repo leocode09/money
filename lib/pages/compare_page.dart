@@ -160,6 +160,22 @@ class _ComparePageState extends State<ComparePage>
     );
   }
 
+  MonthlyTransactionSummary? _latestActiveMonth(
+    List<MonthlyTransactionSummary> summaries,
+  ) {
+    final withData = summaries.where((s) => s.totalReceived > 0).toList()
+      ..sort((a, b) => a.month.compareTo(b.month));
+    if (withData.isEmpty) return null;
+    return withData.last;
+  }
+
+  Map<DateTime, double> _monthMap(List<MonthlyTransactionSummary> summaries) {
+    return {
+      for (final s in summaries)
+        DateTime.utc(s.month.year, s.month.month, 1): s.totalReceived,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final content = Stack(
@@ -373,6 +389,15 @@ class _ComparePageState extends State<ComparePage>
             const SizedBox(height: 12),
             _StaggerItem(
               animation: _contentController,
+              intervalStart: 0.35,
+              intervalEnd: 0.75,
+              slideFrom: const Offset(0, 28),
+              startScale: 0.95,
+              child: _buildGapBarChart(),
+            ),
+            const SizedBox(height: 12),
+            _StaggerItem(
+              animation: _contentController,
               intervalStart: 0.40,
               intervalEnd: 0.80,
               slideFrom: const Offset(0, 28),
@@ -550,6 +575,19 @@ class _ComparePageState extends State<ComparePage>
     final otherActive = _activeMonths(_otherSummaries);
     final selfHighest = _highestMonth(_selfSummaries);
     final otherHighest = _highestMonth(_otherSummaries);
+    final selfLatest = _latestActiveMonth(_selfSummaries);
+    final otherLatest = _latestActiveMonth(_otherSummaries);
+
+    final selfMap = _monthMap(_selfSummaries);
+    final otherMap = _monthMap(_otherSummaries);
+    final sharedMonths =
+        selfMap.keys.where(otherMap.containsKey).toList();
+    final selfWins = sharedMonths
+        .where((m) => (selfMap[m] ?? 0) > (otherMap[m] ?? 0))
+        .length;
+    final otherWins = sharedMonths
+        .where((m) => (otherMap[m] ?? 0) > (selfMap[m] ?? 0))
+        .length;
 
     return _buildGlassCard(
       child: Padding(
@@ -650,6 +688,43 @@ class _ComparePageState extends State<ComparePage>
                   : null,
               subOther: otherHighest != null
                   ? DateFormat('MMM yy').format(otherHighest.month)
+                  : null,
+            ),
+            const SizedBox(height: 10),
+            _buildMetricRow(
+              rowIndex: 5,
+              label: 'Months Won',
+              selfNumeric: selfWins.toDouble(),
+              otherNumeric: otherWins.toDouble(),
+              selfFormatter: (v) => v.round().toString(),
+              otherFormatter: (v) => v.round().toString(),
+              selfBetter: selfWins >= otherWins,
+              icon: Icons.emoji_events_rounded,
+              subSelf:
+                  sharedMonths.isNotEmpty ? 'of ${sharedMonths.length} shared' : null,
+              subOther:
+                  sharedMonths.isNotEmpty ? 'of ${sharedMonths.length} shared' : null,
+            ),
+            const SizedBox(height: 10),
+            _buildMetricRow(
+              rowIndex: 6,
+              label: 'Latest Month',
+              selfNumeric: selfLatest?.totalReceived ?? 0,
+              otherNumeric: otherLatest?.totalReceived ?? 0,
+              selfFormatter: selfLatest != null
+                  ? currencyFormat.format
+                  : (_) => '—',
+              otherFormatter: otherLatest != null
+                  ? currencyFormat.format
+                  : (_) => '—',
+              selfBetter: (selfLatest?.totalReceived ?? 0) >=
+                  (otherLatest?.totalReceived ?? 0),
+              icon: Icons.schedule_rounded,
+              subSelf: selfLatest != null
+                  ? DateFormat('MMM yy').format(selfLatest.month)
+                  : null,
+              subOther: otherLatest != null
+                  ? DateFormat('MMM yy').format(otherLatest.month)
                   : null,
             ),
           ],
@@ -1166,6 +1241,211 @@ class _ComparePageState extends State<ComparePage>
     );
   }
 
+  Widget _buildGapBarChart() {
+    final selfMap = _monthMap(_selfSummaries);
+    final otherMap = _monthMap(_otherSummaries);
+    final sharedMonths = selfMap.keys
+        .where(otherMap.containsKey)
+        .toList()
+      ..sort((a, b) => a.compareTo(b));
+
+    if (sharedMonths.isEmpty) return const SizedBox.shrink();
+
+    final diffs = [
+      for (final m in sharedMonths) (selfMap[m] ?? 0) - (otherMap[m] ?? 0),
+    ];
+    final maxAbs = diffs.fold<double>(0, (m, d) => d.abs() > m ? d.abs() : m);
+    if (maxAbs <= 0) return const SizedBox.shrink();
+
+    return _buildGlassCard(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.stacked_bar_chart_rounded,
+                    color: primaryColor, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  'Monthly gap',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: textPrimary,
+                    fontSize: 15,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const Spacer(),
+                _buildGapLegendDot('You lead', successColor),
+                const SizedBox(width: 10),
+                _buildGapLegendDot('They lead', dangerColor),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 200,
+              child: BarChart(
+                BarChartData(
+                  maxY: maxAbs * 1.15,
+                  minY: -maxAbs * 1.15,
+                  alignment: BarChartAlignment.spaceAround,
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    getDrawingHorizontalLine: (value) => FlLine(
+                      color: value == 0
+                          ? textSecondary.withValues(alpha: 0.5)
+                          : textSecondary.withValues(alpha: 0.15),
+                      strokeWidth: value == 0 ? 1.5 : 1,
+                    ),
+                  ),
+                  titlesData: FlTitlesData(
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          final idx = value.toInt();
+                          if (idx < 0 || idx >= sharedMonths.length) {
+                            return const SizedBox.shrink();
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              DateFormat('MMM').format(sharedMonths[idx]),
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          );
+                        },
+                        reservedSize: 26,
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          final abs = value.abs();
+                          final label = abs >= 1000000
+                              ? '${(abs / 1000000).toStringAsFixed(1)}M'
+                              : '${(abs / 1000).toStringAsFixed(0)}K';
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Text(
+                              value < 0 ? '-$label' : label,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          );
+                        },
+                        reservedSize: 46,
+                      ),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  barTouchData: BarTouchData(
+                    touchTooltipData: BarTouchTooltipData(
+                      tooltipBgColor: cardColor,
+                      tooltipRoundedRadius: 12,
+                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                        final month = sharedMonths[group.x.toInt()];
+                        final diff = diffs[group.x.toInt()];
+                        final ahead = diff >= 0;
+                        return BarTooltipItem(
+                          '${DateFormat('MMM yyyy').format(month)}\n',
+                          TextStyle(
+                            color: textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                          children: [
+                            TextSpan(
+                              text:
+                                  '${ahead ? '+' : '-'}${currencyFormat.format(diff.abs())}',
+                              style: TextStyle(
+                                color: ahead ? successColor : dangerColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                  barGroups: diffs.asMap().entries.map((entry) {
+                    final diff = entry.value;
+                    return BarChartGroupData(
+                      x: entry.key,
+                      barRods: [
+                        BarChartRodData(
+                          toY: diff,
+                          color: diff >= 0 ? successColor : dangerColor,
+                          width: 12,
+                          borderRadius: diff >= 0
+                              ? const BorderRadius.vertical(
+                                  top: Radius.circular(4),
+                                )
+                              : const BorderRadius.vertical(
+                                  bottom: Radius.circular(4),
+                                ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Bars above the line are months you received more than them; below, less.',
+              style: TextStyle(
+                color: textSecondary,
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGapLegendDot(String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: TextStyle(
+            color: textSecondary,
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildMonthDiffList() {
     final selfMap = <DateTime, double>{
       for (final s in _selfSummaries)
@@ -1382,8 +1662,85 @@ class _ComparePageState extends State<ComparePage>
                 ),
               );
             }),
+            const SizedBox(height: 4),
+            _buildHeadToHeadSummary(commonMonths, selfMap, otherMap),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildHeadToHeadSummary(
+    List<DateTime> months,
+    Map<DateTime, double> selfMap,
+    Map<DateTime, double> otherMap,
+  ) {
+    final wins =
+        months.where((m) => (selfMap[m] ?? 0) > (otherMap[m] ?? 0)).length;
+    final netDelta = months.fold<double>(
+      0,
+      (s, m) => s + ((selfMap[m] ?? 0) - (otherMap[m] ?? 0)),
+    );
+    final ahead = netDelta >= 0;
+    final winRate = months.isEmpty ? 0.0 : wins / months.length;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: AppDecorations.tintedChip(
+        context,
+        ahead ? successColor : dangerColor,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                ahead ? Icons.emoji_events_rounded : Icons.flag_rounded,
+                color: ahead ? successColor : dangerColor,
+                size: 16,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'You led $wins of ${months.length} shared month${months.length != 1 ? 's' : ''}',
+                  style: TextStyle(
+                    color: textPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              Text(
+                '${ahead ? '+' : '-'}${currencyFormat.format(netDelta.abs())}',
+                style: TextStyle(
+                  color: ahead ? successColor : dangerColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: winRate,
+              minHeight: 6,
+              backgroundColor: accentPurple.withValues(alpha: 0.25),
+              valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Win rate ${(winRate * 100).toStringAsFixed(0)}% · net difference across shared months',
+            style: TextStyle(
+              color: textSecondary,
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }

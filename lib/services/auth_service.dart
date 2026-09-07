@@ -30,6 +30,8 @@ class AuthService {
   static const String _loggedInPhoneKey = 'loggedInPhone';
   static const String _loggedInNameKey = 'loggedInDisplayName';
   static const String _acceptedTermsVersionKey = 'acceptedTermsVersion';
+  static const String _shopPasswordHashKey = 'shopPasswordHash';
+  static const String _shopPasswordEnabledKey = 'shopPasswordEnabled';
   static const Duration _firestoreTimeout = Duration(seconds: 12);
 
   /// Masks a phone for UI when the user's name is unknown (same rules as compare UI).
@@ -187,6 +189,49 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_loggedInPhoneKey);
     await prefs.remove(_loggedInNameKey);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Shop password (optional app lock for the dashboard)
+  // ---------------------------------------------------------------------------
+
+  Future<bool> hasShopPassword() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_shopPasswordHashKey) != null;
+  }
+
+  Future<bool> isShopPasswordEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_shopPasswordEnabledKey) ?? false;
+  }
+
+  Future<bool> setShopPassword(String password) async {
+    if (password.length < 4) return false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_shopPasswordHashKey, _hashPassword(password));
+    await prefs.setBool(_shopPasswordEnabledKey, true);
+    return true;
+  }
+
+  Future<bool> verifyShopPassword(String password) async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString(_shopPasswordHashKey);
+    if (stored == null) return false;
+    return stored == _hashPassword(password);
+  }
+
+  Future<bool> changeShopPassword(String current, String newPassword) async {
+    if (newPassword.length < 4) return false;
+    if (!await verifyShopPassword(current)) return false;
+    return setShopPassword(newPassword);
+  }
+
+  Future<bool> removeShopPassword(String current) async {
+    if (!await verifyShopPassword(current)) return false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_shopPasswordHashKey);
+    await prefs.setBool(_shopPasswordEnabledKey, false);
+    return true;
   }
 
   /// Cached display name from last sign-in/sign-up. May be empty for legacy accounts.

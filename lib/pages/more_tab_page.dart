@@ -8,12 +8,16 @@ class MoreTabPage extends StatelessWidget {
   final bool isPublic;
   final bool isTogglingPublic;
   final ValueChanged<bool> onPublicChanged;
+  final bool shopPasswordEnabled;
+  final VoidCallback onManageShopPassword;
 
   const MoreTabPage({
     super.key,
     required this.isPublic,
     required this.isTogglingPublic,
     required this.onPublicChanged,
+    required this.shopPasswordEnabled,
+    required this.onManageShopPassword,
   });
 
   @override
@@ -61,6 +65,18 @@ class MoreTabPage extends StatelessWidget {
               style: TextStyle(color: c.textSecondary, fontSize: 12),
             ),
             activeThumbColor: c.primary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _SettingsCard(
+          child: _SettingsTile(
+            icon: Icons.storefront_rounded,
+            iconColor: c.primary,
+            title: 'Shop password',
+            subtitle: shopPasswordEnabled
+                ? 'Dashboard locks when you leave the app.'
+                : 'Set a password to lock the dashboard.',
+            onTap: onManageShopPassword,
           ),
         ),
         const SizedBox(height: 12),
